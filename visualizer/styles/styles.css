@@ -1,0 +1,60 @@
+body {
+  text-align: center;
+}
+
+div {
+  margin: 10px;
+}
+
+.inverted {
+  background-color: black;
+  color: white;
+}
+
+#container {
+  padding: 30px;
+  display: inline-block;
+  max-width: 1400px;
+  line-height: 18px;
+  text-align: left;
+}
+
+.box {
+  font-size: 10pt;
+  padding: 0px;
+}
+
+.sent {
+  color: gray;
+  background-color: gray;
+}
+
+.quacked.acked {
+  color: #9ACD32;
+  background-color: #9ACD32;
+}
+
+.quacked.detect_lost_packets {
+  color: #990000;
+  background-color: #990000;
+}
+
+.quacked {
+  color: yellow;
+  background-color: yellow;
+}
+
+.acked {
+  color: green;
+  background-color: green;
+}
+
+.detect_lost_packets {
+  color: black;
+  background-color: black;
+}
+
+.sidekick_detect_lost_packets {
+  color: yellow;
+  background-color: black;
+}
