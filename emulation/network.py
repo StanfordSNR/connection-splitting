@@ -1,3 +1,7 @@
+import select
+import subprocess
+import sys
+
 from common import *
 from mininet.net import Mininet
 from mininet.link import TCLink
@@ -77,15 +81,15 @@ class OneHopNetwork:
             self.statistics = None
 
         # Setup routing and forwarding
-        popen(self.r1, "ifconfig r1-eth0 0")
-        popen(self.r1, "ifconfig r1-eth1 0")
-        popen(self.r1, "ifconfig r1-eth0 hw ether 00:00:00:00:01:01")
-        popen(self.r1, "ifconfig r1-eth1 hw ether 00:00:00:00:01:02")
-        popen(self.r1, "ip addr add 10.0.1.1/24 brd + dev r1-eth0")
-        popen(self.r1, "ip addr add 10.0.2.1/24 brd + dev r1-eth1")
+        self.popen(self.r1, "ifconfig r1-eth0 0")
+        self.popen(self.r1, "ifconfig r1-eth1 0")
+        self.popen(self.r1, "ifconfig r1-eth0 hw ether 00:00:00:00:01:01")
+        self.popen(self.r1, "ifconfig r1-eth1 hw ether 00:00:00:00:01:02")
+        self.popen(self.r1, "ip addr add 10.0.1.1/24 brd + dev r1-eth0")
+        self.popen(self.r1, "ip addr add 10.0.2.1/24 brd + dev r1-eth1")
         self.r1.cmd("echo 1 > /proc/sys/net/ipv4/ip_forward")
-        popen(self.h1, "ip route add default via 10.0.1.1")
-        popen(self.h2, "ip route add default via 10.0.2.1")
+        self.popen(self.h1, "ip route add default via 10.0.1.1")
+        self.popen(self.h2, "ip route add default via 10.0.2.1")
 
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
@@ -94,6 +98,9 @@ class OneHopNetwork:
         self._config_iface('r1-eth0', delay1, loss1, bw1, bdp)
         self._config_iface('r1-eth1', delay2, loss2, bw2, bdp)
         self._config_iface('h2-eth0', delay2, loss2, bw2, bdp)
+
+        # Keep track of background processes for cleanup
+        self.background_processes = []
 
     @staticmethod
     def _mac(digit):
@@ -113,29 +120,44 @@ class OneHopNetwork:
 
     def _config_iface(self, iface, delay, loss, bw, bdp, gso=True, tso=True):
         host = self.iface_to_host[iface]
-        popen(host, f'tc qdisc add dev {iface} root handle 2: ' \
-                    f'netem loss {loss}% delay {delay}ms')
-        popen(host, f'tc qdisc add dev {iface} parent 2: handle 3: ' \
-                    f'htb default 10')
-        popen(host, f'tc class add dev {iface} parent 3: ' \
-                    f'classid 10 htb rate {bw}Mbit')
-        popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
-                    f'red limit {bdp*4} avpkt 1000 ' \
-                    f'adaptive harddrop bandwidth {bw}Mbit')
+        self.popen(host, f'tc qdisc add dev {iface} root handle 2: ' \
+                         f'netem loss {loss}% delay {delay}ms')
+        self.popen(host, f'tc qdisc add dev {iface} parent 2: handle 3: ' \
+                         f'htb default 10')
+        self.popen(host, f'tc class add dev {iface} parent 3: ' \
+                         f'classid 10 htb rate {bw}Mbit')
+        self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
+                         f'red limit {bdp*4} avpkt 1000 ' \
+                         f'adaptive harddrop bandwidth {bw}Mbit')
 
         # Turn off tso and gso to send MTU-sized packets
         gso = 'on' if gso else 'off'
         tso = 'on' if tso else 'off'
-        popen(host, f'ethtool -K {iface} gso {gso} tso {tso}')
+        self.popen(host, f'ethtool -K {iface} gso {gso} tso {tso}')
 
-
-"""
-A one hop network with code executing on the endpoints and middlebox.
-"""
-class SidekickNetwork(OneHopNetwork):
-    def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2):
-        super().__init__(delay1, delay2, loss1, loss2, bw1, bw2)
-        self.background_processes = []
+    def popen(self, host, cmd, background=False, logger=TRACE,
+              stdout=False, stderr=True):
+        p = host.popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if background:
+            logger(f'{host.name} {cmd} &')
+            self.background_processes.append(p)
+            return p
+        else:
+            logger(f'{host.name} {cmd}')
+            while p.poll() is None or p.stdout.peek() or p.stderr.peek():
+                ready, _, _ = select.select([p.stdout, p.stderr], [], [])
+                for stream in ready:
+                    line = stream.readline()
+                    if not line:
+                        continue
+                    if stream == p.stdout and stdout:
+                        print(line.decode(), end='', file=sys.stdout)
+                    if stream == p.stderr and stderr:
+                        print(line.decode(), end='', file=sys.stderr)
+            exitcode = p.wait()
+            if exitcode != 0:
+                print(f'{host}({cmd}) = {exitcode}', file=sys.stderr)
+                exit(1)
 
     def stop(self):
         for p in self.background_processes:
@@ -143,6 +165,13 @@ class SidekickNetwork(OneHopNetwork):
             p.wait()
         if self.net is not None:
             self.net.stop()
+
+"""
+A one hop network with code executing on the endpoints and middlebox.
+"""
+class SidekickNetwork(OneHopNetwork):
+    def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2):
+        super().__init__(delay1, delay2, loss1, loss2, bw1, bw2)
 
     ###########################################################################
     # SERVER
@@ -176,11 +205,11 @@ class SidekickNetwork(OneHopNetwork):
 
     def start_tcp_pep(self):
         DEBUG('Starting the TCP PEP on r1...')
-        popen(self.r1, 'ip rule add fwmark 1 lookup 100')
-        popen(self.r1, 'ip route add local 0.0.0.0/0 dev lo table 100')
-        popen(self.r1, 'iptables -t mangle -F')
-        popen(self.r1, 'iptables -t mangle -A PREROUTING -i r1-eth1 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
-        popen(self.r1, 'iptables -t mangle -A PREROUTING -i r1-eth0 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
+        self.popen(self.r1, 'ip rule add fwmark 1 lookup 100')
+        self.popen(self.r1, 'ip route add local 0.0.0.0/0 dev lo table 100')
+        self.popen(self.r1, 'iptables -t mangle -F')
+        self.popen(self.r1, 'iptables -t mangle -A PREROUTING -i r1-eth1 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
+        self.popen(self.r1, 'iptables -t mangle -A PREROUTING -i r1-eth0 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
         self.r1.cmd('pepsal -v >> r1.log 2>&1 &')
 
     def start_sidekick(self):
