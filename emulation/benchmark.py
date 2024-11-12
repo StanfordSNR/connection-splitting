@@ -1,4 +1,7 @@
+import time
+
 from common import *
+
 
 class BaseBenchmark:
     def __init__(self, net):
@@ -24,11 +27,14 @@ class QUICBenchmark(BaseBenchmark):
         base = 'deps/chromium/src'
         cmd = f'./{base}/out/Default/quic_client --allow_unknown_root_cert '\
         f'--host={self.net.h2.IP()} --port=6121 https://www.example.org/'
-        self.net.popen(self.net.h1, cmd, background=False, logger=DEBUG, stdout=True)
+        self.net.popen(self.net.h1, cmd, background=False, logger=DEBUG)
 
     def run(self):
         self.start_server()
+        start = time.monotonic()
         self.run_client()
+        end = time.monotonic()
+        print(f'{end - start:.3f}')
 
 
 class TCPBenchmark(BaseBenchmark):
