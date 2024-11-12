@@ -13,7 +13,7 @@ def benchmark_http1():
 
 
 def benchmark_http3(net, args):
-    bm = QUICBenchmark(net)
+    bm = QUICBenchmark(net, args.n)
     bm.run()
 
 
@@ -62,6 +62,8 @@ if __name__ == '__main__':
     ###########################################################################
     quic = subparsers.add_parser('quic')
     quic.set_defaults(ty='benchmark', benchmark=benchmark_http3)
+    quic.add_argument('-n', type=str, default='1M', metavar='BYTES_STR',
+        help='Number of bytes to download in the HTTP/3 GET request')
 
     ###########################################################################
     # WebRTC benchmark

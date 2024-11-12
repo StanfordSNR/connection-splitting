@@ -137,13 +137,30 @@ class OneHopNetwork:
 
     def popen(self, host, cmd, background=False, logger=TRACE,
               stdout=False, stderr=True):
+        # Log the command to be executed
+        host_str = '' if host is None else f'{host.name} '
+        background_str = ' &' if background else ''
+        logger(f'{host_str}{cmd}{background_str}')
+
+        # Execute the command on the local host
+        if host is None:
+            assert not background
+            p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            if p.stdout:
+                print(p.stdout.strip(), end='', file=sys.stdout)
+            if p.stderr:
+                print(p.stderr.strip(), end='', file=sys.stderr)
+            if p.returncode != 0:
+                print(f'{cmd} = {p.returncode}', file=sys.stderr)
+                exit(1)
+            return
+
+        # Execute the command on a mininet host
         p = host.popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if background:
-            logger(f'{host.name} {cmd} &')
             self.background_processes.append(p)
             return p
         else:
-            logger(f'{host.name} {cmd}')
             while p.poll() is None or p.stdout.peek() or p.stderr.peek():
                 ready, _, _ = select.select([p.stdout, p.stderr], [], [])
                 for stream in ready:

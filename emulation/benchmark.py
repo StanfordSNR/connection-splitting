@@ -12,8 +12,14 @@ class BaseBenchmark:
 
 
 class QUICBenchmark(BaseBenchmark):
-    def __init__(self, net):
+    def __init__(self, net, n: str):
         super().__init__(net)
+
+        # Create cache dir
+        self.cache_dir = '/tmp/quic-data/www.example.org'
+        filename = f'{self.cache_dir}/index.html'
+        net.popen(None, f'mkdir -p {self.cache_dir}', logger=DEBUG)
+        # net.popen(None, f'head -c {n} /dev/urandom > {filename}', logger=DEBUG)
 
     def start_server(self):
         base = 'deps/chromium/src'
