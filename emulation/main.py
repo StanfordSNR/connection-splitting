@@ -75,13 +75,15 @@ if __name__ == '__main__':
     net = SidekickNetwork(args.delay1, args.delay2, args.loss1, args.loss2,
         args.bw1, args.bw2)
 
-    if args.ty == 'cli':
-        CLI(net.net)
-    else:
-        if args.print_statistics:
-            net.statistics.start()
-            args.benchmark(net, args)
-            net.statistics.stop_and_print()
+    try:
+        if args.ty == 'cli':
+            CLI(net.net)
         else:
-            args.benchmark(net, args)
-    net.stop()
+            if args.print_statistics:
+                net.statistics.start()
+                args.benchmark(net, args)
+                net.statistics.stop_and_print()
+            else:
+                args.benchmark(net, args)
+    finally:
+        net.stop()

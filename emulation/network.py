@@ -135,8 +135,12 @@ A one hop network with code executing on the endpoints and middlebox.
 class SidekickNetwork(OneHopNetwork):
     def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2):
         super().__init__(delay1, delay2, loss1, loss2, bw1, bw2)
+        self.background_processes = []
 
     def stop(self):
+        for p in self.background_processes:
+            p.terminate()
+            p.wait()
         if self.net is not None:
             self.net.stop()
 
