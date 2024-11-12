@@ -3,6 +3,7 @@ import sys
 import time
 from common import *
 from network import *
+from benchmark import *
 from mininet.cli import CLI
 from mininet.log import setLogLevel
 
@@ -12,8 +13,9 @@ def benchmark_http1():
 
 
 def benchmark_http3(net, args):
-    net.start_http3_quic_webserver()
-    net.start_http3_quic_client()
+    bm = QUICBenchmark(net)
+    bm.run()
+
 
 def benchmark_webrtc():
     pass
@@ -72,7 +74,7 @@ if __name__ == '__main__':
     ###########################################################################
 
     args = parser.parse_args()
-    net = SidekickNetwork(args.delay1, args.delay2, args.loss1, args.loss2,
+    net = OneHopNetwork(args.delay1, args.delay2, args.loss1, args.loss2,
         args.bw1, args.bw2)
 
     try:

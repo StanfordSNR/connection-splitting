@@ -52,7 +52,8 @@ class TestOneHopNetwork(unittest.TestCase):
     def test_queue_size_config(self):
         pass
 
+    def test_popen(self):
+        pass
 
-class SidekickNetwork(unittest.TestCase):
-    def setUp(self):
+    def test_stop(self):
         pass
