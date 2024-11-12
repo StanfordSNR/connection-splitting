@@ -49,7 +49,7 @@ class NetStatistics():
 
 
 class SidekickNetwork():
-    def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2, qdisc):
+    def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2):
         self.net = Mininet(controller=None, link=TCLink)
 
         # Add hosts and switches
@@ -88,35 +88,11 @@ class SidekickNetwork():
         bdp = get_max_queue_size_bytes(rtt_ms, bw_mbps)
         sclog(f'max_queue_size (bytes) = {bdp}')
         def tc(host, iface, loss, delay, bw):
-            if qdisc == 'tbf':
-                popen(host, f'tc qdisc add dev {iface} root handle 1:0 ' \
-                            f'netem loss {loss}% delay {delay}ms')
-                popen(host, f'tc qdisc add dev {iface} parent 1:1 handle 10: ' \
-                            f'tbf rate {bw}mbit burst {bw*500*2} limit {bdp}')
-            elif qdisc == 'cake':
-                popen(host, f'tc qdisc add dev {iface} root handle 1:0 ' \
-                            f'netem loss {loss}% delay {delay}ms')
-                popen(host, f'tc qdisc add dev {iface} parent 1:1 handle 10: ' \
-                            f'cake bandwidth {bw}mbit' \
-                            f'oceanic flowblind besteffort')
-            elif qdisc == 'codel':
-                popen(host, f'tc qdisc add dev {iface} root handle 1:0 ' \
-                            f'netem loss {loss}% delay {delay}ms rate {bw}mbit')
-                popen(host, f'tc qdisc add dev {iface} parent 1:1 handle 10: codel')
-            elif qdisc == 'red':
-                popen(host, f'tc qdisc add dev {iface} handle 1:0 root ' \
-                            f'red limit {bdp*4} avpkt 1000 adaptive ' \
-                            f'harddrop bandwidth {bw}Mbit')
-                popen(host, f'tc qdisc add dev {iface} parent 1:1 handle 10: ' \
-                            f'netem loss {loss}% delay {delay}ms rate {bw}mbit')
-            elif qdisc == 'grenville':
-                popen(host, f'tc qdisc add dev {iface} root handle 2: netem loss {loss}% delay {delay}ms')
-                popen(host, f'tc qdisc add dev {iface} parent 2: handle 3: htb default 10')
-                popen(host, f'tc class add dev {iface} parent 3: classid 10 htb rate {bw}Mbit')
-                popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
-                            f'red limit {bdp*4} avpkt 1000 adaptive harddrop bandwidth {bw}Mbit')
-            else:
-                sclog('{} {} no qdisc enabled'.format(host, iface))
+            popen(host, f'tc qdisc add dev {iface} root handle 2: netem loss {loss}% delay {delay}ms')
+            popen(host, f'tc qdisc add dev {iface} parent 2: handle 3: htb default 10')
+            popen(host, f'tc class add dev {iface} parent 3: classid 10 htb rate {bw}Mbit')
+            popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
+                        f'red limit {bdp*4} avpkt 1000 adaptive harddrop bandwidth {bw}Mbit')
 
         tc(self.h1, 'h1-eth0', loss1, delay1, bw1)
         tc(self.r1, 'r1-eth0', loss1, delay1, bw1)

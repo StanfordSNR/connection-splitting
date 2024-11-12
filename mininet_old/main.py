@@ -219,7 +219,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     net = SidekickNetwork(args.delay1, args.delay2, args.loss1, args.loss2,
-        args.bw1, args.bw2, args.qdisc)
+        args.bw1, args.bw2)
     net.start_webserver(args.min_ack_delay, args.max_ack_delay)
     sclog(f'Link1 delay={args.delay1} loss={args.loss1} bw={args.bw1}')
     sclog(f'Link2 delay={args.delay2} loss={args.loss2} bw={args.bw2}')
