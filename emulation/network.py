@@ -181,7 +181,13 @@ class SidekickNetwork(OneHopNetwork):
         pass
 
     def start_http3_quic_webserver(self):
-        pass
+        base = 'deps/chromium/src'
+        cmd = f'./{base}/out/Default/quic_server '\
+        f'--quic_response_cache_dir=/tmp/quic-data/www.example.org '\
+        f'--certificate_file={base}/net/tools/quic/certs/out/leaf_cert.pem '\
+        f'--key_file={base}/net/tools/quic/certs/out/leaf_cert.pkcs8'
+        p = self.popen(self.h2, cmd, background=True, logger=DEBUG)
+        self.background_processes.append(p)
 
     def start_webrtc_sender(self):
         pass
@@ -194,7 +200,10 @@ class SidekickNetwork(OneHopNetwork):
         pass
 
     def start_http3_quic_client(self):
-        pass
+        base = 'deps/chromium/src'
+        cmd = f'./{base}/out/Default/quic_client --allow_unknown_root_cert '\
+        f'--host={self.h2.IP()} --port=6121 https://www.example.org/'
+        self.popen(self.h1, cmd, background=False, logger=DEBUG, stdout=True)
 
     def start_webrtc_receiver(self):
         pass

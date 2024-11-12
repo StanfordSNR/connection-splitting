@@ -11,9 +11,9 @@ def benchmark_http1():
     pass
 
 
-def benchmark_http3():
-    pass
-
+def benchmark_http3(net, args):
+    net.start_http3_quic_webserver()
+    net.start_http3_quic_client()
 
 def benchmark_webrtc():
     pass
