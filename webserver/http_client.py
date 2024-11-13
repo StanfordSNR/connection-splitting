@@ -3,7 +3,7 @@ import http.client
 import ssl
 import sys
 
-def run(server_ip, server_port, verbose):
+def run(server_ip, server_port, n, verbose):
     # Set up an SSL context to ignore self-signed certificate warnings
     # For testing purposes, disable certificate verification
     ctx = ssl.create_default_context()
@@ -12,13 +12,17 @@ def run(server_ip, server_port, verbose):
 
     # Send a GET request to the server
     conn = http.client.HTTPSConnection(server_ip, server_port, context=ctx)
-    conn.request('GET', '/')
+    conn.request('GET', f'/?n={n}')
 
     # Get the response from the server
     response = conn.getresponse()
-    if verbose:
-        print('Headers:', response.getheaders(), file=sys.stderr)
     raw_bytes = response.read()
+    if verbose:
+        print('Status:', response.status, file=sys.stderr)
+        print('Headers:', file=sys.stderr)
+        for k, v in response.getheaders():
+            print(f'\t{k}: {v}', file=sys.stderr)
+        print('Body:', raw_bytes[:min(len(raw_bytes), 1024)], file=sys.stderr)
     print(f'Downloaded {len(raw_bytes)} bytes ({response.status})', file=sys.stderr)
 
     # Close the connection
@@ -32,5 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--server-ip', type=str, default='127.0.0.1')
     parser.add_argument('--server-port', type=int, default=8443)
     parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('-n', type=int, default=1000000,
+        help='Number of bytes to request, 1e6 is 1 MB')
     args = parser.parse_args()
-    run(args.server_ip, args.server_port, args.verbose)
+    run(args.server_ip, args.server_port, args.n, args.verbose)
