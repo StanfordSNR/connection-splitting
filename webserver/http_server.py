@@ -55,13 +55,9 @@ def run(server_ip, server_port, certfile, keyfile):
     httpd = http.server.HTTPServer(server_address, SimpleHTTPRequestHandler)
 
     # Wrap the socket with SSL
-    httpd.socket = ssl.wrap_socket(
-        httpd.socket,
-        server_side=True,
-        certfile=certfile,
-        keyfile=keyfile,
-        ssl_version=ssl.PROTOCOL_TLS,
-    )
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.load_cert_chain(certfile=certfile, keyfile=keyfile)
+    httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
 
     print(f'Serving on https://{server_ip}:{server_port}', file=sys.stderr)
     httpd.serve_forever()
