@@ -52,12 +52,18 @@ class TCPBenchmark(BaseBenchmark):
         super().__init__(net)
         self.certfile = certfile
         self.keyfile = keyfile
+        self.server_ip = self.net.h2.IP()
 
     def start_server(self, logfile):
-        pass
+        cmd = f'python webserver/http_server.py --server-ip {self.server_ip} '\
+              f'--certfile {self.certfile} --keyfile {self.keyfile}'
+        self.net.popen(self.net.h2, cmd, background=True,
+            console_logger=DEBUG, logfile=logfile)
 
     def run_client(self, logfile):
-        pass
+        cmd = f'python webserver/http_client.py --server-ip {self.server_ip}'
+        self.net.popen(self.net.h1, cmd, background=False,
+            console_logger=DEBUG, logfile=logfile)
 
     def start_tcp_pep(self):
         DEBUG('Starting the TCP PEP on r1...')
@@ -69,7 +75,11 @@ class TCPBenchmark(BaseBenchmark):
         self.net.r1.cmd('pepsal -v >> r1.log 2>&1 &')
 
     def run(self, logdir):
-        pass
+        self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
+        start = time.monotonic()
+        self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
+        end = time.monotonic()
+        print(f'{end - start:.3f}')
 
 
 class WebRTCBenchmark(BaseBenchmark):
