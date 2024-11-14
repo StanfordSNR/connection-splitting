@@ -1,8 +1,41 @@
+import json
 import time
 import threading
+from datetime import datetime
+from enum import Enum
 from typing import Optional, Tuple
 
 from common import *
+
+
+class Protocol(Enum):
+    QUIC = 0
+    TCP = 1
+
+
+class BenchmarkResult:
+    def __init__(self, protocol: Protocol):
+        self.inputs = {
+            'protocol': protocol.name,
+            'start_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'num_trials': 1,
+        }
+        self.outputs = {
+            'success': False,
+        }
+
+    def set_success(self, success: bool):
+        self.outputs['success'] = success
+
+    def set_time_s(self, time_s: float):
+        self.outputs['time_s'] = time_s
+
+    def print(self):
+        result = {
+            'inputs': self.inputs,
+            'outputs': [self.outputs],
+        }
+        print(json.dumps(result, indent=2))
 
 
 class BaseBenchmark:
@@ -113,12 +146,17 @@ class TCPBenchmark(BaseBenchmark):
         self.net.r1.cmd('pepsal -v >> r1.log 2>&1 &')
 
     def run(self, logdir):
+        # Start the server
         self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
-        start = time.monotonic()
-        result = self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
-        end = time.monotonic()
-        print(f'{end - start:.3f}')
-        print(result)
+
+        # Run the client
+        result = BenchmarkResult(Protocol.TCP)
+        output = self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
+        if output is not None:
+            status_code, time_s = output
+            result.set_success(status_code == 200)
+            result.set_time_s(time_s)
+        result.print()
 
 
 class WebRTCBenchmark(BaseBenchmark):
