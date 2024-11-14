@@ -39,3 +39,9 @@ def read_subprocess_pipe(p):
             if not line:
                 continue
             yield (line.decode(), stream)
+
+def handle_background_process(p, logfile):
+    for line, stream in read_subprocess_pipe(p):
+        if logfile is not None:
+            with open(logfile, 'a') as f:
+                f.write(line)

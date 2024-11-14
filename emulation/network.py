@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import threading
 
 from common import *
 from mininet.net import Mininet
@@ -158,6 +159,11 @@ class OneHopNetwork:
         p = host.popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if background:
             self.background_processes.append(p)
+            thread = threading.Thread(
+                target=handle_background_process,
+                args=(p, logfile),
+            )
+            thread.start()
             return p
         else:
             for line, stream in read_subprocess_pipe(p):
