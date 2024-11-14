@@ -1,4 +1,5 @@
 import time
+import threading
 
 from common import *
 
@@ -57,8 +58,21 @@ class TCPBenchmark(BaseBenchmark):
     def start_server(self, logfile):
         cmd = f'python webserver/http_server.py --server-ip {self.server_ip} '\
               f'--certfile {self.certfile} --keyfile {self.keyfile}'
-        self.net.popen(self.net.h2, cmd, background=True,
-            console_logger=DEBUG, logfile=logfile)
+
+        condition = threading.Condition()
+        def notify_when_ready(line):
+            if 'Serving' in line:
+                with condition:
+                    condition.notify()
+
+        # The start_server() function blocks until the server is ready to
+        # accept client requests. That is, when we observe the 'Serving'
+        # string in the server output.
+        with condition:
+            self.net.popen(self.net.h2, cmd, background=True,
+                console_logger=DEBUG, logfile=logfile,
+                background_func=notify_when_ready)
+            condition.wait()
 
     def run_client(self, logfile):
         cmd = f'python webserver/http_client.py --server-ip {self.server_ip}'
