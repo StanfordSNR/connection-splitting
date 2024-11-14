@@ -2,6 +2,7 @@ import argparse
 import http.client
 import ssl
 import sys
+import time
 
 def run(server_ip, server_port, n, verbose):
     # Set up an SSL context to ignore self-signed certificate warnings
@@ -11,19 +12,25 @@ def run(server_ip, server_port, n, verbose):
     ctx.verify_mode = ssl.CERT_NONE
 
     # Send a GET request to the server
+    start = time.monotonic()
     conn = http.client.HTTPSConnection(server_ip, server_port, context=ctx)
     conn.request('GET', f'/?n={n}')
 
     # Get the response from the server
     response = conn.getresponse()
     raw_bytes = response.read()
+    end = time.monotonic()
     if verbose:
-        print('Status:', response.status, file=sys.stderr)
-        print('Headers:', file=sys.stderr)
+        print('Status:', response.status)
+        print('Headers:')
         for k, v in response.getheaders():
-            print(f'\t{k}: {v}', file=sys.stderr)
-        print('Body:', raw_bytes[:min(len(raw_bytes), 1024)], file=sys.stderr)
-    print(f'Downloaded {len(raw_bytes)} bytes ({response.status})', file=sys.stderr)
+            print(f'\t{k}: {v}')
+        print('Body:', raw_bytes[:min(len(raw_bytes), 1024)])
+    print(f'Downloaded {len(raw_bytes)} bytes')
+    print(
+        f'[TCP_CLIENT] status_code={response.status} time_s={end - start}',
+        file=sys.stderr,
+    )
 
     # Close the connection
     conn.close()

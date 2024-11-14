@@ -135,7 +135,7 @@ class OneHopNetwork:
         tso = 'on' if tso else 'off'
         self.popen(host, f'ethtool -K {iface} gso {gso} tso {tso}')
 
-    def popen(self, host, cmd, background=False, background_func=None,
+    def popen(self, host, cmd, background=False, func=None,
               stdout=False, stderr=True, console_logger=TRACE, logfile=None):
         """
         Start a process that executes a command on the given mininet host.
@@ -143,8 +143,8 @@ class OneHopNetwork:
         - host: the mininet host
         - cmd: a command string
         - background: whether to run as a background process
-        - background_func: if a background process, a function to execute
-          on every line of output. the function takes as input (line,).
+        - func: a function to execute on every line of output.
+          the function takes as input (line,).
         - stdout: whether to log stdout to the console
         - stderr: whether to log stderr to the console
         - console_logger: log level function for logging to the console
@@ -174,7 +174,7 @@ class OneHopNetwork:
             self.background_processes.append(p)
             thread = threading.Thread(
                 target=handle_background_process,
-                args=(p, logfile, background_func),
+                args=(p, logfile, func),
             )
             thread.start()
             return p
@@ -187,6 +187,8 @@ class OneHopNetwork:
                 if logfile is not None:
                     with open(logfile, 'a') as f:
                         f.write(line)
+                if func is not None:
+                    func(line)
             exitcode = p.wait()
             if exitcode != 0:
                 print(f'{host}({cmd}) = {exitcode}', file=sys.stderr)

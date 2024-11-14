@@ -1,5 +1,6 @@
 import time
 import threading
+from typing import Optional, Tuple
 
 from common import *
 
@@ -70,14 +71,37 @@ class TCPBenchmark(BaseBenchmark):
         # string in the server output.
         with condition:
             self.net.popen(self.net.h2, cmd, background=True,
-                console_logger=DEBUG, logfile=logfile,
-                background_func=notify_when_ready)
+                console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
             condition.wait()
 
-    def run_client(self, logfile):
+    def run_client(self, logfile) -> Optional[Tuple[int, float]]:
+        """Returns the status code and runtime (seconds) of the GET request.
+        """
         cmd = f'python webserver/http_client.py --server-ip {self.server_ip}'
+
+        result = []
+        def parse_result(line):
+            if not line.startswith('[TCP_CLIENT]'):
+                return
+            try:
+                line = line.split(' ')[1:]
+                line = [kv.split('=') for kv in line]
+                assert line[0][0] == 'status_code'
+                assert line[1][0] == 'time_s'
+                status_code = int(line[0][1])
+                time_s = float(line[1][1])
+                result.append((status_code, time_s))
+            except:
+                pass
+
         self.net.popen(self.net.h1, cmd, background=False,
-            console_logger=DEBUG, logfile=logfile)
+            console_logger=DEBUG, logfile=logfile, func=parse_result)
+        if len(result) == 0:
+            WARN('TCP client failed to return result')
+        elif len(result) > 1:
+            WARN(f'TCP client returned multiple results {result}')
+        else:
+            return result[0]
 
     def start_tcp_pep(self):
         DEBUG('Starting the TCP PEP on r1...')
@@ -91,9 +115,10 @@ class TCPBenchmark(BaseBenchmark):
     def run(self, logdir):
         self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
         start = time.monotonic()
-        self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
+        result = self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
         end = time.monotonic()
         print(f'{end - start:.3f}')
+        print(result)
 
 
 class WebRTCBenchmark(BaseBenchmark):
