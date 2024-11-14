@@ -23,7 +23,7 @@ def benchmark_http3(net, args):
         certfile=args.certfile,
         keyfile=args.keyfile,
     )
-    bm.run()
+    bm.run(args.logdir)
 
 
 def benchmark_webrtc():
@@ -40,6 +40,13 @@ if __name__ == '__main__':
     subparsers = parser.add_subparsers(required=True)
     cli = subparsers.add_parser('cli')
     cli.set_defaults(ty='cli')
+
+    ###########################################################################
+    # Experiment configurations
+    ###########################################################################
+    exp_config = parser.add_argument_group('exp_config')
+    exp_config.add_argument('--logdir', type=str, default='/tmp/sidekick-logs',
+        help='Directory where host logs are written, in server.log and client.log')
 
     ###########################################################################
     # Network Configurations
@@ -88,10 +95,6 @@ if __name__ == '__main__':
     webrtc = subparsers.add_parser('webrtc')
     webrtc.set_defaults(ty='benchmark', benchmark=benchmark_webrtc)
 
-    ###########################################################################
-    # Experiment configurations
-    ###########################################################################
-
     args = parser.parse_args()
     net = OneHopNetwork(args.delay1, args.delay2, args.loss1, args.loss2,
         args.bw1, args.bw2)
@@ -100,6 +103,7 @@ if __name__ == '__main__':
         if args.ty == 'cli':
             CLI(net.net)
         else:
+            init_logdir(args.logdir)
             if args.print_statistics:
                 net.statistics.start()
                 args.benchmark(net, args)

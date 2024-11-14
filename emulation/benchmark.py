@@ -20,27 +20,29 @@ class QUICBenchmark(BaseBenchmark):
         # Create cache dir
         self.cache_dir = '/tmp/quic-data/www.example.org'
         filename = f'{self.cache_dir}/index.html'
-        net.popen(None, f'mkdir -p {self.cache_dir}', logger=DEBUG)
-        # net.popen(None, f'head -c {n} /dev/urandom > {filename}', logger=DEBUG)
+        net.popen(None, f'mkdir -p {self.cache_dir}', console_logger=DEBUG)
+        # net.popen(None, f'head -c {n} /dev/urandom > {filename}', console_logger=DEBUG)
 
-    def start_server(self):
+    def start_server(self, logfile):
         base = 'deps/chromium/src'
         cmd = f'./{base}/out/Default/quic_server '\
         f'--quic_response_cache_dir=/tmp/quic-data/www.example.org '\
         f'--certificate_file={self.certfile} '\
         f'--key_file={self.keyfile}'
-        self.net.popen(self.net.h2, cmd, background=True, logger=DEBUG)
+        self.net.popen(self.net.h2, cmd, background=True,
+            console_logger=DEBUG, logfile=logfile)
 
-    def run_client(self):
+    def run_client(self, logfile):
         base = 'deps/chromium/src'
         cmd = f'./{base}/out/Default/quic_client --allow_unknown_root_cert '\
         f'--host={self.net.h2.IP()} --port=6121 https://www.example.org/'
-        self.net.popen(self.net.h1, cmd, background=False, logger=DEBUG)
+        self.net.popen(self.net.h1, cmd, background=False,
+            console_logger=DEBUG, logfile=logfile)
 
-    def run(self):
-        self.start_server()
+    def run(self, logdir):
+        self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
         start = time.monotonic()
-        self.run_client()
+        self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
         end = time.monotonic()
         print(f'{end - start:.3f}')
 
@@ -51,10 +53,10 @@ class TCPBenchmark(BaseBenchmark):
         self.certfile = certfile
         self.keyfile = keyfile
 
-    def start_server(self):
+    def start_server(self, logfile):
         pass
 
-    def run_client(self):
+    def run_client(self, logfile):
         pass
 
     def start_tcp_pep(self):
@@ -65,6 +67,9 @@ class TCPBenchmark(BaseBenchmark):
         popen(self.net.r1, 'iptables -t mangle -A PREROUTING -i r1-eth1 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
         popen(self.net.r1, 'iptables -t mangle -A PREROUTING -i r1-eth0 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
         self.net.r1.cmd('pepsal -v >> r1.log 2>&1 &')
+
+    def run(self, logdir):
+        pass
 
 
 class WebRTCBenchmark(BaseBenchmark):

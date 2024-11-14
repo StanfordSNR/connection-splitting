@@ -1,4 +1,3 @@
-import select
 import subprocess
 import sys
 
@@ -135,12 +134,12 @@ class OneHopNetwork:
         tso = 'on' if tso else 'off'
         self.popen(host, f'ethtool -K {iface} gso {gso} tso {tso}')
 
-    def popen(self, host, cmd, background=False, logger=TRACE,
-              stdout=False, stderr=True):
+    def popen(self, host, cmd, background=False,
+              stdout=False, stderr=True, console_logger=TRACE, logfile=None):
         # Log the command to be executed
         host_str = '' if host is None else f'{host.name} '
         background_str = ' &' if background else ''
-        logger(f'{host_str}{cmd}{background_str}')
+        console_logger(f'{host_str}{cmd}{background_str}')
 
         # Execute the command on the local host
         if host is None:
@@ -161,16 +160,14 @@ class OneHopNetwork:
             self.background_processes.append(p)
             return p
         else:
-            while p.poll() is None or p.stdout.peek() or p.stderr.peek():
-                ready, _, _ = select.select([p.stdout, p.stderr], [], [])
-                for stream in ready:
-                    line = stream.readline()
-                    if not line:
-                        continue
-                    if stream == p.stdout and stdout:
-                        print(line.decode(), end='', file=sys.stdout)
-                    if stream == p.stderr and stderr:
-                        print(line.decode(), end='', file=sys.stderr)
+            for line, stream in read_subprocess_pipe(p):
+                if stream == p.stdout and stdout:
+                    print(line, end='', file=sys.stdout)
+                if stream == p.stderr and stderr:
+                    print(line, end='', file=sys.stderr)
+                if logfile is not None:
+                    with open(logfile, 'a') as f:
+                        f.write(line)
             exitcode = p.wait()
             if exitcode != 0:
                 print(f'{host}({cmd}) = {exitcode}', file=sys.stderr)
