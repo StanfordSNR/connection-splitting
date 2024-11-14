@@ -12,8 +12,10 @@ class BaseBenchmark:
 
 
 class QUICBenchmark(BaseBenchmark):
-    def __init__(self, net, n: str):
+    def __init__(self, net, n: str, certfile=None, keyfile=None):
         super().__init__(net)
+        self.certfile = certfile
+        self.keyfile = keyfile
 
         # Create cache dir
         self.cache_dir = '/tmp/quic-data/www.example.org'
@@ -25,8 +27,8 @@ class QUICBenchmark(BaseBenchmark):
         base = 'deps/chromium/src'
         cmd = f'./{base}/out/Default/quic_server '\
         f'--quic_response_cache_dir=/tmp/quic-data/www.example.org '\
-        f'--certificate_file={base}/net/tools/quic/certs/out/leaf_cert.pem '\
-        f'--key_file={base}/net/tools/quic/certs/out/leaf_cert.pkcs8'
+        f'--certificate_file={self.certfile} '\
+        f'--key_file={self.keyfile}'
         self.net.popen(self.net.h2, cmd, background=True, logger=DEBUG)
 
     def run_client(self):
@@ -44,8 +46,10 @@ class QUICBenchmark(BaseBenchmark):
 
 
 class TCPBenchmark(BaseBenchmark):
-    def __init__(self, net):
+    def __init__(self, net, certfile=None, keyfile=None):
         super().__init__(net)
+        self.certfile = certfile
+        self.keyfile = keyfile
 
     def start_server(self):
         pass

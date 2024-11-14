@@ -8,12 +8,21 @@ from mininet.cli import CLI
 from mininet.log import setLogLevel
 
 
+DEFAULT_SSL_CERTFILE = f'deps/chromium/src/net/tools/quic/certs/out/leaf_cert.pem'
+DEFAULT_SSL_KEYFILE = f'deps/chromium/src/net/tools/quic/certs/out/leaf_cert.pkcs8'
+
+
 def benchmark_http1():
     pass
 
 
 def benchmark_http3(net, args):
-    bm = QUICBenchmark(net, args.n)
+    bm = QUICBenchmark(
+        net,
+        args.n,
+        certfile=args.certfile,
+        keyfile=args.keyfile,
+    )
     bm.run()
 
 
@@ -56,6 +65,10 @@ if __name__ == '__main__':
     ###########################################################################
     tcp = subparsers.add_parser('tcp')
     tcp.set_defaults(ty='benchmark', benchmark=benchmark_http1)
+    tcp.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
+        help='Path to SSL certificate')
+    tcp.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE,
+        help='Path to SSL key')
 
     ###########################################################################
     # HTTP/3+QUIC benchmark
@@ -64,6 +77,10 @@ if __name__ == '__main__':
     quic.set_defaults(ty='benchmark', benchmark=benchmark_http3)
     quic.add_argument('-n', type=str, default='1M', metavar='BYTES_STR',
         help='Number of bytes to download in the HTTP/3 GET request')
+    quic.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
+        help='Path to SSL certificate')
+    quic.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE,
+        help='Path to SSL key')
 
     ###########################################################################
     # WebRTC benchmark
