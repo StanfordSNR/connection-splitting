@@ -14,10 +14,11 @@ class Protocol(Enum):
 
 
 class BenchmarkResult:
-    def __init__(self, protocol: Protocol):
+    def __init__(self, protocol: Protocol, data_size: int):
         self.inputs = {
             'protocol': protocol.name,
             'start_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'data_size': data_size,
             'num_trials': 1,
         }
         self.outputs = {
@@ -29,6 +30,8 @@ class BenchmarkResult:
 
     def set_time_s(self, time_s: float):
         self.outputs['time_s'] = time_s
+        self.outputs['throughput_mbps'] = \
+            8 * self.inputs['data_size'] / 1000000 / time_s
 
     def print(self):
         result = {
@@ -83,15 +86,17 @@ class QUICBenchmark(BaseBenchmark):
 
 
 class TCPBenchmark(BaseBenchmark):
-    def __init__(self, net, certfile=None, keyfile=None):
+    def __init__(self, net, n, certfile=None, keyfile=None):
         super().__init__(net)
+        self.n = n
         self.certfile = certfile
         self.keyfile = keyfile
         self.server_ip = self.net.h2.IP()
 
     def start_server(self, logfile):
         cmd = f'python webserver/http_server.py --server-ip {self.server_ip} '\
-              f'--certfile {self.certfile} --keyfile {self.keyfile}'
+              f'--certfile {self.certfile} --keyfile {self.keyfile} '\
+              f'-n {self.n}'
 
         condition = threading.Condition()
         def notify_when_ready(line):
@@ -110,7 +115,8 @@ class TCPBenchmark(BaseBenchmark):
     def run_client(self, logfile) -> Optional[Tuple[int, float]]:
         """Returns the status code and runtime (seconds) of the GET request.
         """
-        cmd = f'python webserver/http_client.py --server-ip {self.server_ip}'
+        cmd = f'python webserver/http_client.py --server-ip {self.server_ip} '\
+              f'-n {self.n}'
 
         result = []
         def parse_result(line):
@@ -150,7 +156,10 @@ class TCPBenchmark(BaseBenchmark):
         self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
 
         # Run the client
-        result = BenchmarkResult(Protocol.TCP)
+        result = BenchmarkResult(
+            protocol=Protocol.TCP,
+            data_size=self.n,
+        )
         output = self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
         if output is not None:
             status_code, time_s = output

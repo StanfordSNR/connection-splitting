@@ -16,6 +16,7 @@ DEFAULT_SSL_KEYFILE_TCP = f'deps/chromium/src/net/tools/quic/certs/out/leaf_cert
 def benchmark_http1(net, args):
     bm = TCPBenchmark(
         net,
+        args.n,
         certfile=args.certfile,
         keyfile=args.keyfile,
     )
@@ -35,6 +36,21 @@ def benchmark_http3(net, args):
 def benchmark_webrtc():
     pass
 
+
+def parse_data_size(n):
+    try:
+        multiplier = 1
+        if 'K' in n:
+            multiplier = 1000
+        elif 'M' in n:
+            multiplier = 1000000
+        elif 'G' in n:
+            multiplier = 1000000000
+        else:
+            return int(n)
+        return multiplier * int(n[:-1])
+    except Exception:
+        raise ValueError(f'invalid data size {n}')
 
 if __name__ == '__main__':
     setLogLevel('info')
@@ -78,6 +94,9 @@ if __name__ == '__main__':
     ###########################################################################
     tcp = subparsers.add_parser('tcp')
     tcp.set_defaults(ty='benchmark', benchmark=benchmark_http1)
+    tcp.add_argument('-n', type=parse_data_size, default=1000000,
+        help='Number of bytes to download in the HTTP/1.1 GET request, '\
+             'e.g., 1000, 1K, 1M, 1000000, 1G')
     tcp.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
         help='Path to SSL certificate')
     tcp.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_TCP,
@@ -88,8 +107,9 @@ if __name__ == '__main__':
     ###########################################################################
     quic = subparsers.add_parser('quic')
     quic.set_defaults(ty='benchmark', benchmark=benchmark_http3)
-    quic.add_argument('-n', type=str, default='1M', metavar='BYTES_STR',
-        help='Number of bytes to download in the HTTP/3 GET request')
+    quic.add_argument('-n', type=parse_data_size, default=1000000,
+        help='Number of bytes to download in the HTTP/3 GET request, '\
+             'e.g., 1000, 1K, 1M, 1000000, 1G')
     quic.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
         help='Path to SSL certificate')
     quic.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_QUIC,
