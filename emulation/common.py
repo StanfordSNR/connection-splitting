@@ -4,6 +4,7 @@ import sys
 
 SERVER_LOGFILE = 'server.log'
 CLIENT_LOGFILE = 'client.log'
+ROUTER_LOGFILE = 'router.log'
 
 def TRACE(val):
     # LOG(val, 'TRACE')
@@ -26,10 +27,10 @@ def LOG(val, level):
 
 def init_logdir(path):
     os.system(f'mkdir -p {path}')
-    with open(f'{path}/{SERVER_LOGFILE}', 'w') as _:
-        pass
-    with open(f'{path}/{CLIENT_LOGFILE}', 'w') as _:
-        pass
+    for filename in [SERVER_LOGFILE, CLIENT_LOGFILE, ROUTER_LOGFILE]:
+        filename = f'{path}/{filename}'
+        with open(filename, 'w') as _:
+            pass
 
 def read_subprocess_pipe(p):
     while p.poll() is None or p.stdout.peek() or p.stderr.peek():

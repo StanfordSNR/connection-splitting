@@ -14,12 +14,13 @@ class Protocol(Enum):
 
 
 class BenchmarkResult:
-    def __init__(self, protocol: Protocol, data_size: int, cca: str):
+    def __init__(self, protocol: Protocol, data_size: int, cca: str, pep: bool):
         self.inputs = {
             'protocol': protocol.name,
             'start_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             'data_size': data_size,
             'cca': cca,
+            'pep': pep,
             'num_trials': 1,
         }
         self.outputs = {
@@ -90,12 +91,21 @@ class QUICBenchmark(BaseBenchmark):
 
 
 class TCPBenchmark(BaseBenchmark):
-    def __init__(self, net, n, cca, certfile=None, keyfile=None):
+    def __init__(
+        self,
+        net,
+        n: int,
+        cca: str,
+        pep: bool,
+        certfile=None,
+        keyfile=None,
+    ):
         super().__init__(net)
         net.set_tcp_congestion_control(cca)
 
         self.n = n
         self.cca = cca
+        self.pep = pep
         self.certfile = certfile
         self.keyfile = keyfile
         self.server_ip = self.net.h2.IP()
@@ -149,24 +159,41 @@ class TCPBenchmark(BaseBenchmark):
         else:
             return result[0]
 
-    def start_tcp_pep(self):
-        DEBUG('Starting the TCP PEP on r1...')
-        popen(self.net.r1, 'ip rule add fwmark 1 lookup 100')
-        popen(self.net.r1, 'ip route add local 0.0.0.0/0 dev lo table 100')
-        popen(self.net.r1, 'iptables -t mangle -F')
-        popen(self.net.r1, 'iptables -t mangle -A PREROUTING -i r1-eth1 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
-        popen(self.net.r1, 'iptables -t mangle -A PREROUTING -i r1-eth0 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
-        self.net.r1.cmd('pepsal -v >> r1.log 2>&1 &')
+    def start_tcp_pep(self, logfile):
+        self.net.popen(self.net.r1, 'ip rule add fwmark 1 lookup 100')
+        self.net.popen(self.net.r1, 'ip route add local 0.0.0.0/0 dev lo table 100')
+        self.net.popen(self.net.r1, 'iptables -t mangle -F')
+        self.net.popen(self.net.r1, 'iptables -t mangle -A PREROUTING -i r1-eth1 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
+        self.net.popen(self.net.r1, 'iptables -t mangle -A PREROUTING -i r1-eth0 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
+
+        condition = threading.Condition()
+        def notify_when_ready(line):
+            if 'Pepsal started' in line:
+                with condition:
+                    condition.notify()
+
+        # The start_tcp_pep() function blocks until the TCP PEP is ready to
+        # split connections. That is, when we observe the 'Pepsal started'
+        # string in the router output.
+        with condition:
+            self.net.popen(self.net.r1, 'pepsal -v', background=True,
+                console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
+            condition.wait()
 
     def run(self, logdir):
         # Start the server
         self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
+
+        # Start the TCP PEP
+        if self.pep:
+            self.start_tcp_pep(logfile=f'{logdir}/{ROUTER_LOGFILE}')
 
         # Run the client
         result = BenchmarkResult(
             protocol=Protocol.TCP,
             data_size=self.n,
             cca=self.cca,
+            pep=self.pep,
         )
         self.net.reset_statistics()
         output = self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
