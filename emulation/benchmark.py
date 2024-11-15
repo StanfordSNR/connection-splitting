@@ -133,7 +133,9 @@ class TCPBenchmark(BaseBenchmark):
         with condition:
             self.net.popen(self.net.h2, cmd, background=True,
                 console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
-            condition.wait()
+            notified = condition.wait(timeout=SETUP_TIMEOUT)
+            if not notified:
+                raise TimeoutError(f'start_server timeout {SETUP_TIMEOUT}s')
 
     def run_client(self, logfile) -> Optional[Tuple[int, float]]:
         """Returns the status code and runtime (seconds) of the GET request.
@@ -184,7 +186,9 @@ class TCPBenchmark(BaseBenchmark):
         with condition:
             self.net.popen(self.net.r1, 'pepsal -v', background=True,
                 console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
-            condition.wait()
+            notified = condition.wait(timeout=SETUP_TIMEOUT)
+            if not notified:
+                raise TimeoutError(f'start_tcp_pep timeout {SETUP_TIMEOUT}s')
 
     def run(self, logdir, num_trials):
         # Start the server

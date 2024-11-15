@@ -6,6 +6,8 @@ SERVER_LOGFILE = 'server.log'
 CLIENT_LOGFILE = 'client.log'
 ROUTER_LOGFILE = 'router.log'
 
+SETUP_TIMEOUT = 5
+
 def TRACE(val):
     # LOG(val, 'TRACE')
     pass
