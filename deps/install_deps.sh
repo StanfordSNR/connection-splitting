@@ -24,6 +24,9 @@ sudo pip install virtualenvwrapper
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh  # hit 1
 source $HOME/.cargo/env
 
+# Load BBR
+sudo modprobe tcp_bbr
+
 # Download external dependencies
 cd $SIDEKICK_HOME/deps
 git clone git@github.com:viveris/pepsal.git

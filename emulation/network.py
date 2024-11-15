@@ -135,6 +135,11 @@ class OneHopNetwork:
         tso = 'on' if tso else 'off'
         self.popen(host, f'ethtool -K {iface} gso {gso} tso {tso}')
 
+    def set_tcp_congestion_control(self, cca):
+        assert cca in ['cubic', 'bbr']
+        cmd = f'sudo sysctl -w net.ipv4.tcp_congestion_control={cca}'
+        self.popen(None, cmd, stderr=False, console_logger=DEBUG)
+
     def popen(self, host, cmd, background=False, func=None,
               stdout=False, stderr=True, console_logger=TRACE, logfile=None):
         """
@@ -159,10 +164,10 @@ class OneHopNetwork:
         if host is None:
             assert not background
             p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-            if p.stdout:
-                print(p.stdout.strip(), end='', file=sys.stdout)
-            if p.stderr:
-                print(p.stderr.strip(), end='', file=sys.stderr)
+            if p.stdout and stdout:
+                print(p.stdout.strip(), file=sys.stderr)
+            if p.stderr and stderr:
+                print(p.stderr.strip(), file=sys.stderr)
             if p.returncode != 0:
                 print(f'{cmd} = {p.returncode}', file=sys.stderr)
                 exit(1)
@@ -181,7 +186,7 @@ class OneHopNetwork:
         else:
             for line, stream in read_subprocess_pipe(p):
                 if stream == p.stdout and stdout:
-                    print(line, end='', file=sys.stdout)
+                    print(line, end='', file=sys.stderr)
                 if stream == p.stderr and stderr:
                     print(line, end='', file=sys.stderr)
                 if logfile is not None:

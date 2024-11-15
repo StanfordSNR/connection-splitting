@@ -14,11 +14,12 @@ class Protocol(Enum):
 
 
 class BenchmarkResult:
-    def __init__(self, protocol: Protocol, data_size: int):
+    def __init__(self, protocol: Protocol, data_size: int, cca: str):
         self.inputs = {
             'protocol': protocol.name,
             'start_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             'data_size': data_size,
+            'cca': cca,
             'num_trials': 1,
         }
         self.outputs = {
@@ -86,9 +87,12 @@ class QUICBenchmark(BaseBenchmark):
 
 
 class TCPBenchmark(BaseBenchmark):
-    def __init__(self, net, n, certfile=None, keyfile=None):
+    def __init__(self, net, n, cca, certfile=None, keyfile=None):
         super().__init__(net)
+        net.set_tcp_congestion_control(cca)
+
         self.n = n
+        self.cca = cca
         self.certfile = certfile
         self.keyfile = keyfile
         self.server_ip = self.net.h2.IP()
@@ -159,6 +163,7 @@ class TCPBenchmark(BaseBenchmark):
         result = BenchmarkResult(
             protocol=Protocol.TCP,
             data_size=self.n,
+            cca=self.cca,
         )
         output = self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
         if output is not None:

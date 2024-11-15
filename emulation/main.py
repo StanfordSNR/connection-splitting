@@ -17,6 +17,7 @@ def benchmark_http1(net, args):
     bm = TCPBenchmark(
         net,
         args.n,
+        cca=args.congestion_control,
         certfile=args.certfile,
         keyfile=args.keyfile,
     )
@@ -27,6 +28,7 @@ def benchmark_http3(net, args):
     bm = QUICBenchmark(
         net,
         args.n,
+        cca=args.congestion_control,
         certfile=args.certfile,
         keyfile=args.keyfile,
     )
@@ -100,6 +102,9 @@ if __name__ == '__main__':
     tcp.add_argument('-n', type=parse_data_size, default=1000000,
         help='Number of bytes to download in the HTTP/1.1 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
+    tcp.add_argument('-cca', '--congestion-control',
+        choices=['cubic', 'bbr'], default='cubic',
+        help='Congestion control algorithm at endpoints')
     tcp.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
         help='Path to SSL certificate')
     tcp.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_TCP,
