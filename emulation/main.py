@@ -92,7 +92,10 @@ if __name__ == '__main__':
     ###########################################################################
     # HTTP/1.1+TCP benchmark
     ###########################################################################
-    tcp = subparsers.add_parser('tcp')
+    tcp = subparsers.add_parser(
+        'tcp',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     tcp.set_defaults(ty='benchmark', benchmark=benchmark_http1)
     tcp.add_argument('-n', type=parse_data_size, default=1000000,
         help='Number of bytes to download in the HTTP/1.1 GET request, '\
@@ -105,7 +108,10 @@ if __name__ == '__main__':
     ###########################################################################
     # HTTP/3+QUIC benchmark
     ###########################################################################
-    quic = subparsers.add_parser('quic')
+    quic = subparsers.add_parser(
+        'quic',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     quic.set_defaults(ty='benchmark', benchmark=benchmark_http3)
     quic.add_argument('-n', type=parse_data_size, default=1000000,
         help='Number of bytes to download in the HTTP/3 GET request, '\
@@ -118,7 +124,10 @@ if __name__ == '__main__':
     ###########################################################################
     # WebRTC benchmark
     ###########################################################################
-    webrtc = subparsers.add_parser('webrtc')
+    webrtc = subparsers.add_parser(
+        'webrtc',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     webrtc.set_defaults(ty='benchmark', benchmark=benchmark_webrtc)
 
     args = parser.parse_args()
