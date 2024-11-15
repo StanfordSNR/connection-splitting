@@ -34,6 +34,9 @@ class BenchmarkResult:
         self.outputs['throughput_mbps'] = \
             8 * self.inputs['data_size'] / 1000000 / time_s
 
+    def set_network_statistics(self, statistics):
+        self.outputs['statistics'] = statistics
+
     def print(self):
         result = {
             'inputs': self.inputs,
@@ -165,7 +168,10 @@ class TCPBenchmark(BaseBenchmark):
             data_size=self.n,
             cca=self.cca,
         )
+        self.net.reset_statistics()
         output = self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
+        statistics = self.net.snapshot_statistics()
+        result.set_network_statistics(statistics)
         if output is not None:
             status_code, time_s = output
             result.set_success(status_code == 200)

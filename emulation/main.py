@@ -88,8 +88,6 @@ if __name__ == '__main__':
         help='link bandwidth (in Mbps) on near path segment')
     net_config.add_argument('--bw2', type=int, default=10, metavar='MBPS',
         help='link bandwidth (in Mbps) on far path segment')
-    net_config.add_argument('--print-statistics', action='store_true',
-        help='Print statistics on number of packets sent at each host')
 
     ###########################################################################
     # HTTP/1.1+TCP benchmark
@@ -144,11 +142,6 @@ if __name__ == '__main__':
             CLI(net.net)
         else:
             init_logdir(args.logdir)
-            if args.print_statistics:
-                net.statistics.start()
-                args.benchmark(net, args)
-                net.statistics.stop_and_print()
-            else:
-                args.benchmark(net, args)
+            args.benchmark(net, args)
     finally:
         net.stop()

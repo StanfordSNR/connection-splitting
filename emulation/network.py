@@ -7,45 +7,6 @@ from mininet.net import Mininet
 from mininet.link import TCLink
 
 
-class NetStatistics():
-    def __init__(self, iface_to_host):
-        self.iface_to_host = iface_to_host
-        self.tx_packets = {}
-        self.tx_bytes = {}
-        self.rx_packets = {}
-        self.rx_bytes = {}
-
-    def get(self, host, iface, name):
-        p = host.popen(['cat', f'/sys/class/net/{iface}/statistics/{name}'])
-        assert p.wait() == 0
-        for line in p.stdout:
-            return int(line.strip())
-
-    def start(self):
-        for iface, host in self.iface_to_host.items():
-            self.tx_packets[iface] = self.get(host, iface, 'tx_packets')
-            self.tx_bytes[iface] = self.get(host, iface, 'tx_bytes')
-            self.rx_packets[iface] = self.get(host, iface, 'rx_packets')
-            self.rx_bytes[iface] = self.get(host, iface, 'rx_bytes')
-
-    def stop_and_print(self):
-        # ifaces = self.iface_to_host.keys()
-        iface_to_str = {
-            'h2-eth0': 'DS->proxy',
-            'r1-eth1': 'DS<-proxy',
-            'r1-eth0': 'proxy->DR',
-            'h1-eth0': 'proxy<-DR'
-        }
-        INFO('            tx_packets    tx_bytes  rx_packets    rx_bytes')
-        for iface in ['h2-eth0', 'r1-eth1', 'r1-eth0', 'h1-eth0']:
-            host = self.iface_to_host[iface]
-            tx_packets = self.get(host, iface, 'tx_packets') - self.tx_packets[iface]
-            tx_bytes = self.get(host, iface, 'tx_bytes') - self.tx_bytes[iface]
-            rx_packets = self.get(host, iface, 'rx_packets') - self.rx_packets[iface]
-            rx_bytes = self.get(host, iface, 'rx_bytes') - self.rx_bytes[iface]
-            INFO(f'{iface_to_str[iface]:<10}{tx_packets:>12}{tx_bytes:>12}{rx_packets:>12}{rx_bytes:>12}')
-
-
 """
 Defines an emulated network in mininet with one intermediate hop between the
 client and the server. The 1st link is between the client / data receiver (h1)
@@ -53,7 +14,9 @@ and the router (r1), and the 2nd link is between the router (r1) and the
 server / data sender (h2).
 """
 class OneHopNetwork:
-    def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2, statistics=False):
+    METRICS = ['tx_packets', 'tx_bytes', 'rx_packets', 'rx_bytes']
+
+    def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2):
         self.net = Mininet(controller=None, link=TCLink)
 
         # Add hosts and switches
@@ -75,10 +38,6 @@ class OneHopNetwork:
             'r1-eth1': self.r1,
             'h2-eth0': self.h2
         }
-        if statistics:
-            self.statistics = NetStatistics(iface_to_host)
-        else:
-            self.statistics = None
 
         # Setup routing and forwarding
         self.popen(self.r1, "ifconfig r1-eth0 0")
@@ -139,6 +98,46 @@ class OneHopNetwork:
         assert cca in ['cubic', 'bbr']
         cmd = f'sudo sysctl -w net.ipv4.tcp_congestion_control={cca}'
         self.popen(None, cmd, stderr=False, console_logger=DEBUG)
+
+    def reset_statistics(self):
+        """After a reset, an immediate snapshot would return all 0 values.
+        """
+        self.raw_metrics = self._read_raw_metrics()
+
+    def snapshot_statistics(self):
+        """Return a snapshot of metrics since the last reset. This is a
+        difference from the statistics on reset.
+        """
+        now = self._read_raw_metrics()
+        for iface in self.iface_to_host:
+            for metric in OneHopNetwork.METRICS:
+                now[iface][metric] -= self.raw_metrics[iface][metric]
+        return now
+
+    def _read_raw_metrics(self):
+        """Read the current raw metrics.
+        """
+        stats = {}
+        for iface in self.iface_to_host:
+            stats[iface] = {}
+            for metric in OneHopNetwork.METRICS:
+                stats[iface][metric] = self._read_raw_metric(iface, metric)
+        return stats
+
+    def _read_raw_metric(self, iface, metric):
+        """Read a single raw metric.
+        """
+        value = []
+        def append_value(line):
+            value.append(int(line.strip()))
+        cmd = f'cat /sys/class/net/{iface}/statistics/{metric}'
+        host = self.iface_to_host[iface]
+        self.popen(host, cmd, func=append_value)
+        if len(value) == 0:
+            ERROR(f'failed to get metric {iface} {metric}')
+            return 0
+        else:
+            return value[0]
 
     def popen(self, host, cmd, background=False, func=None,
               stdout=False, stderr=True, console_logger=TRACE, logfile=None):
