@@ -14,36 +14,42 @@ class Protocol(Enum):
 
 
 class BenchmarkResult:
-    def __init__(self, protocol: Protocol, data_size: int, cca: str, pep: bool):
+    def __init__(self, protocol: Protocol, num_trials: int, data_size: int,
+                 cca: str, pep: bool):
         self.inputs = {
             'protocol': protocol.name,
+            'num_trials': num_trials,
             'start_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             'data_size': data_size,
             'cca': cca,
             'pep': pep,
-            'num_trials': 1,
         }
-        self.outputs = {
-            'success': False,
-        }
+        self.outputs = []
+        for _ in range(num_trials):
+            self.outputs.append({
+                'success': False,
+            })
 
-    def set_success(self, success: bool):
-        self.outputs['success'] = success
+    def set_success(self, i: int, success: bool):
+        self.outputs[i]['success'] = success
 
-    def set_time_s(self, time_s: float):
-        self.outputs['time_s'] = time_s
-        self.outputs['throughput_mbps'] = \
+    def set_time_s(self, i: int, time_s: float):
+        self.outputs[i]['time_s'] = time_s
+        self.outputs[i]['throughput_mbps'] = \
             8 * self.inputs['data_size'] / 1000000 / time_s
 
-    def set_network_statistics(self, statistics):
-        self.outputs['statistics'] = statistics
+    def set_network_statistics(self, i: int, statistics):
+        self.outputs[i]['statistics'] = statistics
 
-    def print(self):
+    def print(self, pretty_print=False):
         result = {
             'inputs': self.inputs,
-            'outputs': [self.outputs],
+            'outputs': self.outputs,
         }
-        print(json.dumps(result, indent=2))
+        if pretty_print:
+            print(json.dumps(result, indent=2))
+        else:
+            print(json.dumps(result))
 
 
 class BaseBenchmark:
@@ -180,7 +186,7 @@ class TCPBenchmark(BaseBenchmark):
                 console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
             condition.wait()
 
-    def run(self, logdir):
+    def run(self, logdir, num_trials):
         # Start the server
         self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
 
@@ -191,18 +197,20 @@ class TCPBenchmark(BaseBenchmark):
         # Run the client
         result = BenchmarkResult(
             protocol=Protocol.TCP,
+            num_trials=num_trials,
             data_size=self.n,
             cca=self.cca,
             pep=self.pep,
         )
-        self.net.reset_statistics()
-        output = self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
-        statistics = self.net.snapshot_statistics()
-        result.set_network_statistics(statistics)
-        if output is not None:
-            status_code, time_s = output
-            result.set_success(status_code == 200)
-            result.set_time_s(time_s)
+        for i in range(num_trials):
+            self.net.reset_statistics()
+            output = self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
+            statistics = self.net.snapshot_statistics()
+            result.set_network_statistics(i, statistics)
+            if output is not None:
+                status_code, time_s = output
+                result.set_success(i, status_code == 200)
+                result.set_time_s(i, time_s)
         result.print()
 
 

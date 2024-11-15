@@ -109,10 +109,13 @@ class OneHopNetwork:
         difference from the statistics on reset.
         """
         now = self._read_raw_metrics()
-        for iface in self.iface_to_host:
-            for metric in OneHopNetwork.METRICS:
-                now[iface][metric] -= self.raw_metrics[iface][metric]
-        return now
+        snapshot = {'ifaces': list(sorted(self.iface_to_host.keys()))}
+        for metric in OneHopNetwork.METRICS:
+            snapshot[metric] = []
+            for iface in snapshot['ifaces']:
+                statistic = now[iface][metric] - self.raw_metrics[iface][metric]
+                snapshot[metric].append(statistic)
+        return snapshot
 
     def _read_raw_metrics(self):
         """Read the current raw metrics.

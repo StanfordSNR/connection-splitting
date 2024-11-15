@@ -22,7 +22,7 @@ def benchmark_http1(net, args):
         certfile=args.certfile,
         keyfile=args.keyfile,
     )
-    bm.run(args.logdir)
+    bm.run(args.logdir, args.trials)
 
 
 def benchmark_http3(net, args):
@@ -70,6 +70,8 @@ if __name__ == '__main__':
     # Experiment configurations
     ###########################################################################
     exp_config = parser.add_argument_group('exp_config')
+    exp_config.add_argument('-t', '--trials', type=int, default=1,
+        help='Number of trials')
     exp_config.add_argument('--logdir', type=str, default='/tmp/sidekick-logs',
         help='Directory where host logs are written, in server.log and client.log')
 
