@@ -97,7 +97,8 @@ class OneHopNetwork:
     def set_tcp_congestion_control(self, cca):
         assert cca in ['cubic', 'bbr']
         cmd = f'sudo sysctl -w net.ipv4.tcp_congestion_control={cca}'
-        self.popen(None, cmd, stderr=False, console_logger=DEBUG)
+        for host in [self.h1, self.r1, self.h2]:
+            self.popen(host, cmd, stderr=False, console_logger=DEBUG)
 
     def reset_statistics(self):
         """After a reset, an immediate snapshot would return all 0 values.
