@@ -22,7 +22,7 @@ def benchmark_http1(net, args):
         certfile=args.certfile,
         keyfile=args.keyfile,
     )
-    bm.run(args.label, args.logdir, args.trials)
+    bm.run(args.label, args.logdir, args.trials, args.network_statistics)
 
 
 def benchmark_http3(net, args):
@@ -75,6 +75,8 @@ if __name__ == '__main__':
     exp_config.add_argument('--label', type=str, required=True)
     exp_config.add_argument('--logdir', type=str, default='/tmp/sidekick-logs',
         help='Directory where host logs are written, in server.log and client.log')
+    exp_config.add_argument('--network-statistics', action='store_true',
+        help='Include measured network statistics in experiment output')
 
     ###########################################################################
     # Network Configurations

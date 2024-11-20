@@ -191,7 +191,7 @@ class TCPBenchmark(BaseBenchmark):
             if not notified:
                 raise TimeoutError(f'start_tcp_pep timeout {SETUP_TIMEOUT}s')
 
-    def run(self, label, logdir, num_trials):
+    def run(self, label, logdir, num_trials, network_statistics):
         # Start the server
         self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
 
@@ -212,7 +212,8 @@ class TCPBenchmark(BaseBenchmark):
             self.net.reset_statistics()
             output = self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
             statistics = self.net.snapshot_statistics()
-            result.set_network_statistics(i, statistics)
+            if network_statistics:
+                result.set_network_statistics(i, statistics)
             if output is not None:
                 status_code, time_s = output
                 result.set_success(i, status_code == 200)
