@@ -86,7 +86,7 @@ if __name__ == '__main__':
         help='1/2 RTT on near path segment')
     net_config.add_argument('--delay2', type=int, default=25, metavar='MS',
         help='1/2 RTT on far path segment')
-    net_config.add_argument('--loss1', type=int, default=1, metavar='PERCENT',
+    net_config.add_argument('--loss1', type=str, default='1', metavar='PERCENT',
         help='loss (in %%) on near path segment')
     net_config.add_argument('--loss2', type=str, default='0', metavar='PERCENT',
         help='loss (in %%) on near path segment')
