@@ -94,6 +94,12 @@ if __name__ == '__main__':
         help='link bandwidth (in Mbps) on near path segment')
     net_config.add_argument('--bw2', type=int, default=10, metavar='MBPS',
         help='link bandwidth (in Mbps) on far path segment')
+    net_config.add_argument('--jitter1', type=int, metavar='MS',
+        help='jitter on near path segment with a default delay correlation '\
+            f'of {DEFAULT_DELAY_CORR}%% and a paretonormal distribution')
+    net_config.add_argument('--jitter2', type=int, metavar='MS',
+        help='jitter on far path segment with a default delay correlation '\
+            f'of {DEFAULT_DELAY_CORR}%% and a paretonormal distribution')
 
     ###########################################################################
     # HTTP/1.1+TCP benchmark
@@ -142,7 +148,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     net = OneHopNetwork(args.delay1, args.delay2, args.loss1, args.loss2,
-        args.bw1, args.bw2)
+        args.bw1, args.bw2, args.jitter1, args.jitter2)
 
     try:
         if args.ty == 'cli':

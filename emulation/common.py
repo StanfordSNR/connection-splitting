@@ -8,6 +8,8 @@ ROUTER_LOGFILE = 'router.log'
 
 SETUP_TIMEOUT = 5
 
+DEFAULT_DELAY_CORR = 40
+
 def TRACE(val):
     # LOG(val, 'TRACE')
     pass

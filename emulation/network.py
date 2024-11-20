@@ -16,7 +16,7 @@ server / data sender (h2).
 class OneHopNetwork:
     METRICS = ['tx_packets', 'tx_bytes', 'rx_packets', 'rx_bytes']
 
-    def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2):
+    def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2, jitter1, jitter2):
         self.net = Mininet(controller=None, link=TCLink)
 
         # Add hosts and switches
@@ -53,10 +53,10 @@ class OneHopNetwork:
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
         bdp = OneHopNetwork._calculate_bdp(delay1, delay2, bw1, bw2)
-        self._config_iface('h1-eth0', delay1, loss1, bw1, bdp)
-        self._config_iface('r1-eth0', delay1, loss1, bw1, bdp)
-        self._config_iface('r1-eth1', delay2, loss2, bw2, bdp)
-        self._config_iface('h2-eth0', delay2, loss2, bw2, bdp)
+        self._config_iface('h1-eth0', delay1, loss1, bw1, bdp, jitter=jitter1)
+        self._config_iface('r1-eth0', delay1, loss1, bw1, bdp, jitter=jitter1)
+        self._config_iface('r1-eth1', delay2, loss2, bw2, bdp, jitter=jitter2)
+        self._config_iface('h2-eth0', delay2, loss2, bw2, bdp, jitter=jitter2)
 
         # Keep track of background processes for cleanup
         self.background_processes = []
@@ -77,14 +77,30 @@ class OneHopNetwork:
         bw_mbps = min(bw1, bw2)
         return rtt_ms * bw_mbps * 1000000. / 1000. / 8.
 
-    def _config_iface(self, iface, delay, loss, bw, bdp, gso=True, tso=True):
+    def _config_iface(self, iface, delay, loss, bw, bdp, gso=True, tso=True,
+                      jitter=None):
+        """Configures the given interface <iface>:
+        - Loss: <loss>% stochastic packet loss
+        - Delay: <delay>ms delay w/ ±<jitter>ms jitter, <delay_corr>% correlation
+        - Base bandwidth: <bw> Mbit/s, range: <bw_min> to <bw_max> Mbit/s
+        - Bandwidth-delay product: <bdp> is used to set the queue size
+        """
         host = self.iface_to_host[iface]
-        self.popen(host, f'tc qdisc add dev {iface} root handle 2: ' \
-                         f'netem loss {loss}% delay {delay}ms')
+
+        # Add netem with delay variability
+        cmd = f'tc qdisc add dev {iface} root handle 2: '\
+              f'netem loss {loss}% delay {delay}ms '
+        if jitter is not None:
+            cmd += f'{jitter}ms {DEFAULT_DELAY_CORR}% distribution paretonormal'
+        self.popen(host, cmd)
+
+        # Add HTB for bandwidth
         self.popen(host, f'tc qdisc add dev {iface} parent 2: handle 3: ' \
                          f'htb default 10')
         self.popen(host, f'tc class add dev {iface} parent 3: ' \
                          f'classid 10 htb rate {bw}Mbit')
+
+        # Add RED for queue management
         self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
                          f'red limit {bdp*4} avpkt 1000 ' \
                          f'adaptive harddrop bandwidth {bw}Mbit')
