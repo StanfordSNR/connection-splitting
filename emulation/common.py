@@ -35,13 +35,13 @@ def init_logdir(path):
             pass
 
 def read_subprocess_pipe(p):
-    while p.poll() is None or p.stdout.peek() or p.stderr.peek():
+    while p.poll() is None:
         ready, _, _ = select.select([p.stdout, p.stderr], [], [])
         for stream in ready:
             line = stream.readline()
             if not line:
                 continue
-            yield (line.decode(), stream)
+            yield (line, stream)
 
 def handle_background_process(p, logfile, func):
     for line, stream in read_subprocess_pipe(p):

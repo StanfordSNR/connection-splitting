@@ -177,7 +177,7 @@ class OneHopNetwork:
             return
 
         # Execute the command on a mininet host
-        p = host.popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = host.popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if background:
             self.background_processes.append(p)
             thread = threading.Thread(
