@@ -14,9 +14,10 @@ class Protocol(Enum):
 
 
 class BenchmarkResult:
-    def __init__(self, protocol: Protocol, num_trials: int, data_size: int,
-                 cca: str, pep: bool):
+    def __init__(self, label: str, protocol: Protocol, num_trials: int,
+                 data_size: int, cca: str, pep: bool):
         self.inputs = {
+            'label': label,
             'protocol': protocol.name,
             'num_trials': num_trials,
             'start_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -190,7 +191,7 @@ class TCPBenchmark(BaseBenchmark):
             if not notified:
                 raise TimeoutError(f'start_tcp_pep timeout {SETUP_TIMEOUT}s')
 
-    def run(self, logdir, num_trials):
+    def run(self, label, logdir, num_trials):
         # Start the server
         self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
 
@@ -200,6 +201,7 @@ class TCPBenchmark(BaseBenchmark):
 
         # Run the client
         result = BenchmarkResult(
+            label=label,
             protocol=Protocol.TCP,
             num_trials=num_trials,
             data_size=self.n,
