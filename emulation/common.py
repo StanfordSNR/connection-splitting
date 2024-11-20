@@ -44,9 +44,9 @@ def read_subprocess_pipe(p):
             yield (line, stream)
 
 def handle_background_process(p, logfile, func):
-    for line, stream in read_subprocess_pipe(p):
-        if logfile is not None:
-            with open(logfile, 'a') as f:
+    with open(logfile, 'a') if logfile else None as f:
+        for line, stream in read_subprocess_pipe(p):
+            if f is not None:
                 f.write(line)
-        if func is not None:
-            func(line)
+            if func is not None:
+                func(line)
