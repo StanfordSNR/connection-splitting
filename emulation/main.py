@@ -115,7 +115,8 @@ if __name__ == '__main__':
     tcp.add_argument('-cca', '--congestion-control',
         choices=['cubic', 'bbr'], default='cubic',
         help='Congestion control algorithm at endpoints')
-    tcp.add_argument('--pep', action='store_true')
+    tcp.add_argument('--pep', action='store_true',
+        help='Enable PEPsal, a connection-splitting TCP PEP')
     tcp.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
         help='Path to SSL certificate')
     tcp.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_TCP,

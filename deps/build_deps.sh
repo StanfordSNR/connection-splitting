@@ -1,8 +1,7 @@
 #!/bin/bash
 help() {
 	echo "USAGE: $0 [all|0|1]"
-	echo "0 = pepsal"
-	echo "1 = sidekick"
+	echo "1 = pepsal"
 	echo "2 = chromium"
 	exit 1
 }
@@ -24,12 +23,6 @@ make
 sudo make install
 }
 
-build_sidekick () {
-cd $SIDEKICK_HOME
-cargo build --release
-cargo build --release --examples --all-features
-}
-
 build_chromium () {
 cd $SIDEKICK_HOME/deps/chromium/src
 gclient runhooks
@@ -41,13 +34,10 @@ if [ $1 == "all" ]; then
 	build_pepsal
 	build_sidekick
 	build_chromium
-elif [ $1 -eq 0 ]; then
-	build_pepsal
 elif [ $1 -eq 1 ]; then
-	build_sidekick
+	build_pepsal
 elif [ $1 -eq 2 ]; then
 	build_chromium
 else
 	help
 fi
-
