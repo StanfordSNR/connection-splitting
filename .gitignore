@@ -19,11 +19,7 @@ results/
 
 results/
 *.log
-deps/nginx*
-deps/pari*
+deps/certs/out/
 deps/pepsal*
-deps/quiche-nginx/
 deps/depot_tools/
 deps/chromium/
-
-loss_tput.error

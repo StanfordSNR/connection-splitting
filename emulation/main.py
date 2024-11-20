@@ -8,9 +8,9 @@ from mininet.cli import CLI
 from mininet.log import setLogLevel
 
 
-DEFAULT_SSL_CERTFILE = f'deps/chromium/src/net/tools/quic/certs/out/leaf_cert.pem'
-DEFAULT_SSL_KEYFILE_QUIC = f'deps/chromium/src/net/tools/quic/certs/out/leaf_cert.pkcs8'
-DEFAULT_SSL_KEYFILE_TCP = f'deps/chromium/src/net/tools/quic/certs/out/leaf_cert.key'
+DEFAULT_SSL_CERTFILE = f'deps/certs/out/leaf_cert.pem'
+DEFAULT_SSL_KEYFILE_QUIC = f'deps/certs/out/leaf_cert.pkcs8'
+DEFAULT_SSL_KEYFILE_TCP = f'deps/certs/out/leaf_cert.key'
 
 
 def benchmark_http1(net, args):
