@@ -72,7 +72,7 @@ if __name__ == '__main__':
     exp_config = parser.add_argument_group('exp_config')
     exp_config.add_argument('-t', '--trials', type=int, default=1,
         help='Number of trials')
-    exp_config.add_argument('--label', type=str, required=True)
+    exp_config.add_argument('--label', type=str, default='NO_LABEL')
     exp_config.add_argument('--logdir', type=str, default='/tmp/sidekick-logs',
         help='Directory where host logs are written, in server.log and client.log')
     exp_config.add_argument('--network-statistics', action='store_true',
