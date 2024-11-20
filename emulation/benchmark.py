@@ -130,9 +130,9 @@ class TCPBenchmark(BaseBenchmark):
         # The start_server() function blocks until the server is ready to
         # accept client requests. That is, when we observe the 'Serving'
         # string in the server output.
+        self.net.popen(self.net.h2, cmd, background=True,
+            console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
         with condition:
-            self.net.popen(self.net.h2, cmd, background=True,
-                console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
             notified = condition.wait(timeout=SETUP_TIMEOUT)
             if not notified:
                 raise TimeoutError(f'start_server timeout {SETUP_TIMEOUT}s')
@@ -183,9 +183,9 @@ class TCPBenchmark(BaseBenchmark):
         # The start_tcp_pep() function blocks until the TCP PEP is ready to
         # split connections. That is, when we observe the 'Pepsal started'
         # string in the router output.
+        self.net.popen(self.net.r1, 'pepsal -v', background=True,
+            console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
         with condition:
-            self.net.popen(self.net.r1, 'pepsal -v', background=True,
-                console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
             notified = condition.wait(timeout=SETUP_TIMEOUT)
             if not notified:
                 raise TimeoutError(f'start_tcp_pep timeout {SETUP_TIMEOUT}s')
