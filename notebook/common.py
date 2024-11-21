@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import matplotlib.pyplot as plt
 
 SIDEKICK_HOME = f'{os.environ["HOME"]}/sidekick-downloads'
