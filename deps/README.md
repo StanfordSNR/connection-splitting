@@ -7,6 +7,7 @@ sudo apt-get update -y
 sudo apt-get install -y autoconf libnfnetlink-dev  # pepsal
 sudo apt-get install -y libnss3-tools  # certificates
 sudo apt-get install -y python3-pip mininet  # mininet
+sudo apt-get install -y python3-virtualenv  # plotting
 ```
 
 Load BBR.

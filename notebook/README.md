@@ -13,6 +13,7 @@ Install Python dependencies:
 
 ```
 pip install matplotlib
+pip install notebook
 ```
 
 ## Jupyter notebook
