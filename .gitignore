@@ -11,10 +11,8 @@ Cargo.lock
 
 __pycache__/
 env/
-figures/*.pdf
-figures/graphs/
-qlog/
-results/
+data/
+.ipynb_checkpoints/
 ._.
 
 results/
