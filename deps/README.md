@@ -1,5 +1,6 @@
 # Setup
 
+Build the Linux kernel with [BBRv3](https://github.com/ygina/sidekick-downloads/blob/main/deps/BBRV3.md).
 Install Linux dependencies.
 
 ```
@@ -8,12 +9,6 @@ sudo apt-get install -y autoconf libnfnetlink-dev  # pepsal
 sudo apt-get install -y libnss3-tools  # certificates
 sudo apt-get install -y python3-pip mininet  # mininet
 sudo apt-get install -y python3-virtualenv  # plotting
-```
-
-Load BBR.
-
-```
-sudo modprobe tcp_bbr
 ```
 
 ## TCP Benchmarks
