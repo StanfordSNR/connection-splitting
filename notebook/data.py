@@ -6,7 +6,7 @@ import subprocess
 import time
 
 from collections import defaultdict
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 from common import SIDEKICK_HOME
 from experiment import Treatment, NetworkSetting, Experiment
@@ -63,9 +63,11 @@ class RawDataFile:
 
 
 class RawDataParser:
-    def __init__(self, exp: Experiment):
+    def __init__(self, exp: Experiment, max_ds, max_ns):
         self.exp = exp
         self.data = {}
+        self._max_ds = max_ds
+        self._max_ns = max_ns
         self._data_sizes = set(exp.data_sizes)
         self._reset()
         self._parse_files()
@@ -74,8 +76,12 @@ class RawDataParser:
         self.data = {}  # treatment -> network_setting -> data_size -> [value]
         for treatment in self.exp.treatments:
             self.data[treatment] = {}
-            for network_setting in self.exp.network_settings:
-                self.data[treatment][network_setting] = defaultdict(lambda: [])
+            max_ns = self._max_ns[treatment]
+            max_ds = self._max_ds[treatment]
+            for network_setting in self.exp.network_settings[:max_ns]:
+                self.data[treatment][network_setting] = {}
+                for data_size in self.exp.data_sizes[:max_ds]:
+                    self.data[treatment][network_setting][data_size] = []
 
     def _parse_files(self):
         for treatment in self.exp.get_treatments():
@@ -118,7 +124,7 @@ class RawDataParser:
             return False
         if network_setting not in self.data[treatment]:
             return False
-        if data_size not in self._data_sizes:
+        if data_size not in self.data[treatment][network_setting]:
             return False
 
         # Add the value if number of trials not exceeded
@@ -130,8 +136,22 @@ class RawDataParser:
 
 
 class RawData(RawDataParser):
-    def __init__(self, exp: Experiment, execute=False, max_retries=5):
-        super().__init__(exp)
+    def __init__(
+        self,
+        exp: Experiment,
+        execute=False,
+        max_retries=5,
+        max_data_sizes: Dict[str, int]={}, # treatment label -> data size index
+        max_networks: Dict[str, int]={}, # treatment label -> network setting index
+    ):
+        max_ds = defaultdict(lambda: len(exp.data_sizes))
+        max_ns = defaultdict(lambda: len(exp.network_settings))
+        for treatment, ds in max_data_sizes.items():
+            max_ds[treatment] = min(ds, len(exp.data_sizes))
+        for treatment, ns in max_networks.items():
+            max_ns[treatment] = min(ns, len(exp.network_settings))
+
+        super().__init__(exp, max_ds=max_ds, max_ns=max_ns)
 
         for i in range(max_retries):
             missing_data = self._find_missing_data()
@@ -148,15 +168,20 @@ class RawData(RawDataParser):
     def _find_missing_data(self) -> List[Tuple[RawDataFile, int, int]]:
         missing_data = []
         for treatment in self.exp.get_treatments():
+            treatment_data = self.data[treatment.label()]
             for network_setting in self.exp.get_network_settings():
+                network_data = treatment_data.get(network_setting.label())
+                if network_data is None:
+                    continue
                 file = RawDataFile(treatment, network_setting)
-                subdata = self.data[treatment.label()][network_setting.label()]
                 for data_size in self.exp.data_sizes:
-                    num_results = len(subdata[data_size])
-                    num_missing = self.exp.num_trials - num_results
-                    if num_missing == 0:
+                    size_data = network_data.get(data_size)
+                    if size_data is None:
                         continue
-                    missing_data.append((file, data_size, num_missing))
+                    num_results = len(size_data)
+                    num_missing = self.exp.num_trials - num_results
+                    if num_missing > 0:
+                        missing_data.append((file, data_size, num_missing))
         return missing_data
 
     def _collect_missing_data(
@@ -235,13 +260,17 @@ class PlottableDataPoint:
 class PlottableData:
     def __init__(self, data: RawData, metric: str):
         self.data = defaultdict(lambda: defaultdict(lambda: {}))
+        self.exp = data.exp
         self.treatments = data.exp.treatments
         self.network_settings = data.exp.network_settings
         self.data_sizes = data.exp.data_sizes
         self.metric = metric
         for treatment in self.treatments:
+            treatment_data = data.data[treatment]
             for network_setting in self.network_settings:
-                results = data.data[treatment][network_setting]
+                results = treatment_data.get(network_setting)
+                if results is None:
+                    continue
                 for data_size, outputs in results.items():
                     if len(outputs) == 0:
                         continue
