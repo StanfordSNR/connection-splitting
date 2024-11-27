@@ -26,13 +26,23 @@ class TCPTreatment(Treatment):
 
 
 class NetworkSetting:
-    def __init__(self, labels: List[str]=[], delay1: int=1, delay2:int =25,
-                 loss1: str='1', loss2: str='0', bw1: int=100, bw2: int=10,
+    DEFAULTS = {
+        'delay1': 1,
+        'delay2': 25,
+        'loss1': '1',
+        'loss2': '0',
+        'bw1': 100,
+        'bw2': 10,
+        'jitter1': None,
+        'jitter2': None,
+    }
+
+    def __init__(self, delay1: Optional[int]=None, delay2: Optional[int]=None,
+                 loss1: Optional[str]=None, loss2: Optional[str]=None,
+                 bw1: Optional[int]=None, bw2: Optional[int]=None,
                  jitter1: Optional[int]=None, jitter2: Optional[int]=None):
         """
-        Labels is a list of setting names e.g. "delay1", "jitter1" to use in
-        generating the label. These will be used in alphabetical order.
-        If empty (default), the label generator will use all setting names.
+        Labels is a list of setting names that are different from default.
         """
         self.settings = {
             'delay1': delay1,
@@ -44,15 +54,33 @@ class NetworkSetting:
             'jitter1': jitter1,
             'jitter2': jitter2,
         }
-        self.labels = list(sorted(labels))
+        self.labels = []
+        for key, value in sorted(self.settings.items()):
+            if value == NetworkSetting.DEFAULTS[key]:
+                pass
+            elif value is None:
+                self.settings[key] = NetworkSetting.DEFAULTS[key]
+            else:
+                self.labels.append(key)
+        self.labels.sort()
+
+    def set(self, key: str, value):
+        self.settings[key] = value
+        if key not in self.labels:
+            self.labels.append(key)
+            self.labels.sort()
+
+    def clone(self):
+        network = NetworkSetting()
+        for key, value in self.settings.items():
+            network.settings[key] = value
+        network.labels = list(self.labels)
+        return network
 
     def label(self) -> str:
         value = 'network_'
-        if len(self.labels) == 0:
-            labels = list(sorted(self.settings.keys()))
-        else:
-            labels = self.labels
-        value += '_'.join([str(self.settings[key]) for key in labels])
+        keys = list(sorted(self.settings.keys()))
+        value += '_'.join([str(self.settings[key]) for key in keys])
         return value
 
 
