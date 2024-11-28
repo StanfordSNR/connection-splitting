@@ -14,33 +14,35 @@ class Protocol(Enum):
 
 
 class BenchmarkResult:
-    def __init__(self, label: str, protocol: Protocol, num_trials: int,
+    def __init__(self, label: str, protocol: Protocol,
                  data_size: int, cca: str, pep: bool):
         self.inputs = {
             'label': label,
             'protocol': protocol.name,
-            'num_trials': num_trials,
+            'num_trials': 0,
             'start_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             'data_size': data_size,
             'cca': cca,
             'pep': pep,
         }
         self.outputs = []
-        for _ in range(num_trials):
-            self.outputs.append({
-                'success': False,
-            })
 
-    def set_success(self, i: int, success: bool):
-        self.outputs[i]['success'] = success
+    def append_new_output(self):
+        self.inputs['num_trials'] += 1
+        self.outputs.append({
+            'success': False,
+        })
 
-    def set_time_s(self, i: int, time_s: float):
-        self.outputs[i]['time_s'] = time_s
-        self.outputs[i]['throughput_mbps'] = \
+    def set_success(self, success: bool):
+        self.outputs[-1]['success'] = success
+
+    def set_time_s(self, time_s: float):
+        self.outputs[-1]['time_s'] = time_s
+        self.outputs[-1]['throughput_mbps'] = \
             8 * self.inputs['data_size'] / 1000000 / time_s
 
-    def set_network_statistics(self, i: int, statistics):
-        self.outputs[i]['statistics'] = statistics
+    def set_network_statistics(self, statistics):
+        self.outputs[-1]['statistics'] = statistics
 
     def print(self, pretty_print=False):
         result = {
@@ -199,26 +201,43 @@ class TCPBenchmark(BaseBenchmark):
         if self.pep:
             self.start_tcp_pep(logfile=f'{logdir}/{ROUTER_LOGFILE}')
 
+        # Initialize remaining trials
+        num_trials_left = num_trials
+
         # Run the client
-        result = BenchmarkResult(
-            label=label,
-            protocol=Protocol.TCP,
-            num_trials=num_trials,
-            data_size=self.n,
-            cca=self.cca,
-            pep=self.pep,
-        )
-        for i in range(num_trials):
-            self.net.reset_statistics()
-            output = self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
-            statistics = self.net.snapshot_statistics()
-            if network_statistics:
-                result.set_network_statistics(i, statistics)
-            if output is not None:
+        while num_trials_left > 0:
+            result = BenchmarkResult(
+                label=label,
+                protocol=Protocol.TCP,
+                data_size=self.n,
+                cca=self.cca,
+                pep=self.pep,
+            )
+
+            # Log output every LOG_CHUNK_TIME while continuing to run trials
+            total_time_s = 0
+            while num_trials_left > 0 and total_time_s < LOG_CHUNK_TIME:
+                result.append_new_output()
+                self.net.reset_statistics()
+                output = self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
+
+                # Error
+                if output is None:
+                    ERROR('no output')
+                    num_trials_left -= 1
+                    continue
+
+                # Success
+                if network_statistics:
+                    statistics = self.net.snapshot_statistics()
+                    result.set_network_statistics(statistics)
                 status_code, time_s = output
-                result.set_success(i, status_code == 200)
-                result.set_time_s(i, time_s)
-        result.print()
+                result.set_success(status_code == 200)
+                result.set_time_s(time_s)
+
+                total_time_s += time_s
+                num_trials_left -= 1
+            result.print()
 
 
 class WebRTCBenchmark(BaseBenchmark):

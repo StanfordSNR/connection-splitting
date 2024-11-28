@@ -8,6 +8,10 @@ ROUTER_LOGFILE = 'router.log'
 
 SETUP_TIMEOUT = 5
 
+# Log a benchmark result every this number of seconds so there is console
+# output, even if there are still trials remaining.
+LOG_CHUNK_TIME = 300
+
 DEFAULT_DELAY_CORR = 40
 
 def TRACE(val):
