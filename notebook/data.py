@@ -187,7 +187,7 @@ class RawData(RawDataParser):
     def _collect_missing_data(
         self,
         missing_data: List[Tuple[RawDataFile, int, int]],
-        chunk_size: int=100,
+        chunk_size: int=10,
     ):
         print(len(missing_data))
         for file, data_size, num_missing in missing_data:
