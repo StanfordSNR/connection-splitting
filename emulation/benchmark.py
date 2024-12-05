@@ -64,15 +64,18 @@ class BaseBenchmark:
 
 
 class QUICBenchmark(BaseBenchmark):
-    def __init__(self, net, n: str, certfile=None, keyfile=None):
+    def __init__(self, net, n: str, cca: str, certfile=None, keyfile=None):
         super().__init__(net)
+        self.n = n
+        self.cca = cca
         self.certfile = certfile
         self.keyfile = keyfile
+        self.server_ip = self.net.h2.IP()
 
         # Create cache dir
-        self.cache_dir = '/tmp/quic-data/www.example.org'
-        filename = f'{self.cache_dir}/index.html'
-        net.popen(None, f'mkdir -p {self.cache_dir}', console_logger=DEBUG)
+        # self.cache_dir = '/tmp/quic-data/www.example.org'
+        # filename = f'{self.cache_dir}/index.html'
+        # net.popen(None, f'mkdir -p {self.cache_dir}', console_logger=DEBUG)
         # net.popen(None, f'head -c {n} /dev/urandom > {filename}', console_logger=DEBUG)
 
     def start_server(self, logfile):
@@ -84,19 +87,57 @@ class QUICBenchmark(BaseBenchmark):
         self.net.popen(self.net.h2, cmd, background=True,
             console_logger=DEBUG, logfile=logfile)
 
-    def run_client(self, logfile):
+    def run_client(self, logfile) -> Optional[Tuple[int, float]]:
+        """Returns the status code and runtime (seconds) of the GET request.
+        """
         base = 'deps/chromium/src'
         cmd = f'./{base}/out/Default/quic_client --allow_unknown_root_cert '\
         f'--host={self.net.h2.IP()} --port=6121 https://www.example.org/'
         self.net.popen(self.net.h1, cmd, background=False,
             console_logger=DEBUG, logfile=logfile)
+        return None
 
-    def run(self, logdir):
+    def run(self, label, logdir, num_trials, network_statistics):
+        # Start the server
         self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
-        start = time.monotonic()
-        self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
-        end = time.monotonic()
-        print(f'{end - start:.3f}')
+
+        # Initialize remaining trials
+        num_trials_left = num_trials
+
+        # Run the client
+        while num_trials_left > 0:
+            result = BenchmarkResult(
+                label=label,
+                protocol=Protocol.QUIC,
+                data_size=self.n,
+                cca=self.cca,
+                pep=False,
+            )
+
+            # Log output every LOG_CHUNK_TIME while continuing to run trials
+            total_time_s = 0
+            while num_trials_left > 0 and total_time_s < LOG_CHUNK_TIME:
+                result.append_new_output()
+                self.net.reset_statistics()
+                output = self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
+
+                # Error
+                if output is None:
+                    ERROR('no output')
+                    num_trials_left -= 1
+                    continue
+
+                # Success
+                if network_statistics:
+                    statistics = self.net.snapshot_statistics()
+                    result.set_network_statistics(statistics)
+                status_code, time_s = output
+                result.set_success(status_code == 200)
+                result.set_time_s(time_s)
+
+                total_time_s += time_s
+                num_trials_left -= 1
+            result.print()
 
 
 class TCPBenchmark(BaseBenchmark):

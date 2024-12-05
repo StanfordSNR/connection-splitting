@@ -33,7 +33,7 @@ def benchmark_http3(net, args):
         certfile=args.certfile,
         keyfile=args.keyfile,
     )
-    bm.run(args.logdir)
+    bm.run(args.label, args.logdir, args.trials, args.network_statistics)
 
 
 def benchmark_webrtc():
@@ -133,6 +133,9 @@ if __name__ == '__main__':
     quic.add_argument('-n', type=parse_data_size, default=1000000,
         help='Number of bytes to download in the HTTP/3 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
+    quic.add_argument('-cca', '--congestion-control',
+        choices=['cubic', 'bbr'], default='cubic',
+        help='Congestion control algorithm at endpoints')
     quic.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
         help='Path to SSL certificate')
     quic.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_QUIC,
