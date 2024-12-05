@@ -93,9 +93,30 @@ class QUICBenchmark(BaseBenchmark):
         base = 'deps/chromium/src'
         cmd = f'./{base}/out/Default/quic_client --allow_unknown_root_cert '\
         f'--host={self.net.h2.IP()} --port=6121 https://www.example.org/'
+
+        result = []
+        def parse_result(line):
+            if not line.startswith('[QUIC_CLIENT]'):
+                return
+            try:
+                line = line.split(' ')[1:]
+                line = [kv.split('=') for kv in line]
+                assert line[0][0] == 'status_code'
+                assert line[1][0] == 'time_s'
+                status_code = int(line[0][1])
+                time_s = float(line[1][1].strip()[:-1])  # output ends in "s"
+                result.append((status_code, time_s))
+            except:
+                pass
+
         self.net.popen(self.net.h1, cmd, background=False,
-            console_logger=DEBUG, logfile=logfile)
-        return None
+            console_logger=DEBUG, logfile=logfile, func=parse_result)
+        if len(result) == 0:
+            WARN('QUIC client failed to return result')
+        elif len(result) > 1:
+            WARN(f'QUIC client returned multiple results {result}')
+        else:
+            return result[0]
 
     def run(self, label, logdir, num_trials, network_statistics):
         # Start the server

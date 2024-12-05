@@ -457,8 +457,15 @@ int QuicToyClient::SendRequestsAndPrintResponses(
   client->set_store_response(true);
 
   for (int i = 0; i < num_requests; ++i) {
+    // Start the timer.
+    auto start = std::chrono::high_resolution_clock::now();
+
     // Send the request.
     client->SendRequestAndWaitForResponse(header_block, body, /*fin=*/true);
+
+    // End the timer.
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> time_s = end - start;
 
     // Print request and response details.
     if (!quiche::GetQuicheCommandLineFlag(FLAGS_quiet)) {
@@ -527,6 +534,10 @@ int QuicToyClient::SendRequestsAndPrintResponses(
         return 1;
       }
     }
+
+    // Log the result for the mininet benchmarks.
+    std::cerr << "[QUIC_CLIENT] status_code=" << response_code
+              << " time_s=" << time_s << std::endl;
 
     if (i + 1 < num_requests) {  // There are more requests to perform.
       if (quiche::GetQuicheCommandLineFlag(FLAGS_one_connection_per_request)) {
