@@ -66,19 +66,19 @@ export PATH="$(pwd)/depot_tools:$PATH"
 update_depot_tools
 mkdir chromium
 cd chromium
-fetch --nohooks --no-history chromium
+fetch --nohooks --no-history chromium  # 10 minutes
 ```
 
 Install Chromium dependencies.
 ```
 cd $SIDEKICK_HOME/deps/chromium/src
-./build/install-build-deps.sh
+./build/install-build-deps.sh  # 5 minutes
 ```
 
 Build Chromium.
 ```
 cd $SIDEKICK_HOME/deps
-./build_deps.sh 2
+./build_deps.sh 2  # 10 minutes
 ```
 
 Generate cached webserver data.

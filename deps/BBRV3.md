@@ -18,7 +18,7 @@ Install dependencies and download the kernel source.
 ```
 $ sudo apt update
 $ sudo apt install build-essential fakeroot libncurses-dev libssl-dev libelf-dev bison flex bc wget
-$ git clone https://kernel.ubuntu.com/git/ubuntu/ubuntu-jammy.git
+$ git clone https://kernel.ubuntu.com/git/ubuntu/ubuntu-jammy.git  # 15 minutes
 $ cd ubuntu-jammy
 $ git remote add google-bbr https://github.com/google/bbr.git
 $ git fetch google-bbr
@@ -43,7 +43,7 @@ $ scripts/config --disable DEBUG_INFO_DWARF5
 Confirm the version. The Git hash should be `7542cc7c41c0` and the Linux
 kernel version on `make menuconfig` should be `6.4.0`. Build:
 ```
-$ make -j$(nproc)
+$ make -j$(nproc)  # 15 minutes
 ```
 
 Install the new modules and update the GRUB bootloader.
