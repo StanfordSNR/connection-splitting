@@ -48,6 +48,11 @@ def read_subprocess_pipe(p):
             if not line:
                 continue
             yield (line, stream)
+    stdout, stderr = p.communicate()
+    for line in stdout.splitlines(keepends=True):
+        yield (line, p.stdout)
+    for line in stderr.splitlines(keepends=True):
+        yield (line, p.stderr)
 
 def handle_background_process(p, logfile, func):
     with open(logfile, 'a') if logfile else None as f:
