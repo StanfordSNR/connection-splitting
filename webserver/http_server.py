@@ -5,10 +5,8 @@ import sys
 import os
 from urllib.parse import urlparse, parse_qs
 
-DEFAULT_CERTFILE = f'{os.environ["HOME"]}/sidekick-downloads/deps/chromium/'\
-                    'src/net/tools/quic/certs/out/leaf_cert.pem'
-DEFAULT_KEYFILE  = f'{os.environ["HOME"]}/sidekick-downloads/deps/chromium/'\
-                    'src/net/tools/quic/certs/out/leaf_cert.key'
+DEFAULT_CERTFILE = f'{os.environ["HOME"]}/sidekick-downloads/deps/certs/out/leaf_cert.pem'
+DEFAULT_KEYFILE  = f'{os.environ["HOME"]}/sidekick-downloads/deps/certs/out/leaf_cert.key'
 CACHE = b''
 
 # Set up a basic request handler
