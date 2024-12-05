@@ -70,6 +70,18 @@ class NetworkSetting:
             self.labels.append(key)
             self.labels.sort()
 
+    def mirror(self):
+        return NetworkSetting(
+            delay1=self.settings['delay2'],
+            delay2=self.settings['delay1'],
+            loss1=self.settings['loss2'],
+            loss2=self.settings['loss1'],
+            bw1=self.settings['bw2'],
+            bw2=self.settings['bw1'],
+            jitter1=self.settings['jitter2'],
+            jitter2=self.settings['jitter1'],
+        )
+
     def clone(self):
         network = NetworkSetting()
         for key, value in self.settings.items():
