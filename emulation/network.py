@@ -111,9 +111,13 @@ class OneHopNetwork:
         self.popen(host, f'ethtool -K {iface} gso {gso} tso {tso}')
 
     def set_tcp_congestion_control(self, cca):
-        assert cca in ['cubic', 'bbr']
-        cmd = f'sudo sysctl -w net.ipv4.tcp_congestion_control={cca}'
-        for host in [self.h1, self.r1, self.h2]:
+        assert cca in ['cubic', 'bbr', 'bbr_cubic']
+        if cca == 'cubic' or cca == 'bbr':
+            host_cca = [(host, cca) for host in [self.h1, self.r1, self.h2]]
+        else:
+            host_cca = [(self.h1, 'bbr'), (self.r1, 'cubic'), (self.h2, 'bbr')]
+        for host, cca in host_cca:
+            cmd = f'sudo sysctl -w net.ipv4.tcp_congestion_control={cca}'
             self.popen(host, cmd, stderr=False, console_logger=DEBUG)
 
     def reset_statistics(self):
