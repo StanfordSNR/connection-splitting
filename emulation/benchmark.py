@@ -108,7 +108,19 @@ class QUICBenchmark(BaseBenchmark):
         cmd = f'./{base}/out/Default/quic_client '\
               f'--allow_unknown_root_cert '\
               f'--host={self.net.h2.IP()} --port=6121 '\
-              f'https://www.example.org/{self.n}'
+              f'https://www.example.org/{self.n} '
+
+        # Add the congestion control algorithm options
+        cca_to_option = {
+            'cubic': 'BYTE',
+            'reno': 'RENO',
+            'bbr1': 'TBBR',
+            'bbr': 'B2ON',
+        }
+        if self.cca in cca_to_option:
+            option = cca_to_option[self.cca]
+            cmd += f'--client_connection_options={option} '
+            cmd += f'--connection_options={option} '
 
         result = []
         def parse_result(line):
