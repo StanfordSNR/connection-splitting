@@ -64,6 +64,10 @@ DEFINE_QUICHE_COMMAND_LINE_FLAG(
     "server binary. If not specified, one will be randomly generated as "
     "\"QuicToyServerN\" where N is a random uint64_t.");
 
+DEFINE_QUICHE_COMMAND_LINE_FLAG(
+    int, num_cached_bytes, 0,
+    "Number of random bytes to initialize in the cache, e.g., 1000000 = 1 MB");
+
 namespace quic {
 
 std::unique_ptr<quic::QuicSimpleServerBackend>
@@ -79,6 +83,25 @@ QuicToyServer::MemoryCacheBackendFactory::CreateBackend() {
   }
   if (quiche::GetQuicheCommandLineFlag(FLAGS_enable_webtransport)) {
     memory_cache_backend->EnableWebTransport();
+  }
+  if (quiche::GetQuicheCommandLineFlag(FLAGS_num_cached_bytes) > 0) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_int_distribution<unsigned char> dist(32, 126); // ASCII
+
+    // Generate a random body of n bytes
+    static thread_local std::string buffer;
+    buffer.resize(FLAGS_num_cached_bytes);
+    for (size_t i = 0; i < FLAGS_num_cached_bytes; i++) {
+      buffer[i] = static_cast<char>(dist(gen));
+    }
+
+    // Add a response at <defaultHost>/<n>
+    constexpr char defaultHost[] = "www.example.org";
+    auto path = "/" + std::to_string(FLAGS_num_cached_bytes);
+    const int response_code = 200;
+    memory_cache_backend->AddSimpleResponse(defaultHost, path, response_code,
+                                            std::string_view(buffer));
   }
 
   if (!quiche::GetQuicheCommandLineFlag(FLAGS_connect_proxy_destinations)

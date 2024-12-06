@@ -494,7 +494,7 @@ int QuicToyClient::SendRequestsAndPrintResponses(
         std::cout << "body:\n"
                   << QuicheTextUtils::HexDump(response_body) << std::endl;
       } else {
-        std::cout << "body: " << response_body << std::endl;
+        std::cout << "body: " << response_body.size() << " bytes" << std::endl;
       }
       std::cout << "trailers: " << client->latest_response_trailers()
                 << std::endl;

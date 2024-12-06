@@ -81,18 +81,21 @@ class QUICBenchmark(BaseBenchmark):
     def start_server(self, logfile):
         base = 'deps/chromium/src'
         cmd = f'./{base}/out/Default/quic_server '\
-        f'--quic_response_cache_dir=/tmp/quic-data/www.example.org '\
-        f'--certificate_file={self.certfile} '\
-        f'--key_file={self.keyfile}'
+              f'--certificate_file={self.certfile} '\
+              f'--key_file={self.keyfile} '\
+              f'--num_cached_bytes={self.n}'
         self.net.popen(self.net.h2, cmd, background=True,
             console_logger=DEBUG, logfile=logfile)
+        time.sleep(1)
 
     def run_client(self, logfile) -> Optional[Tuple[int, float]]:
         """Returns the status code and runtime (seconds) of the GET request.
         """
         base = 'deps/chromium/src'
-        cmd = f'./{base}/out/Default/quic_client --allow_unknown_root_cert '\
-        f'--host={self.net.h2.IP()} --port=6121 https://www.example.org/'
+        cmd = f'./{base}/out/Default/quic_client '\
+              f'--allow_unknown_root_cert '\
+              f'--host={self.net.h2.IP()} --port=6121 '\
+              f'https://www.example.org/{self.n}'
 
         result = []
         def parse_result(line):
