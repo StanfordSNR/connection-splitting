@@ -25,6 +25,15 @@ class TCPTreatment(Treatment):
             return f'{self.protocol}_{self.cca}'
 
 
+class QUICTreatment(Treatment):
+    def __init__(self, cca: str='cubic'):
+        super().__init__(protocol='quic')
+        self.cca = cca
+
+    def label(self) -> str:
+        return f'{self.protocol}_{self.cca}'
+
+
 class NetworkSetting:
     DEFAULTS = {
         'delay1': 1,

@@ -51,14 +51,13 @@ class RawDataFile:
         cmd.append(self._treatment.label())
         protocol = self._treatment.protocol
         cmd.append(protocol)
-        if protocol == 'tcp':
-            if self._treatment.pep:
-                cmd.append('--pep')
-            if self._treatment.cca:
-                cmd.append('-cca')
-                cmd.append(self._treatment.cca)
-            cmd.append('-n')
-            cmd.append(str(data_size))
+        if protocol == 'tcp' and self._treatment.pep:
+            cmd.append('--pep')
+        if self._treatment.cca:
+            cmd.append('-cca')
+            cmd.append(self._treatment.cca)
+        cmd.append('-n')
+        cmd.append(str(data_size))
         return ' '.join(cmd)
 
 
