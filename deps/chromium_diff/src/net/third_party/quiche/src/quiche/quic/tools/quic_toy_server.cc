@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <fstream>
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
@@ -70,6 +71,23 @@ DEFINE_QUICHE_COMMAND_LINE_FLAG(
 
 namespace quic {
 
+std::string GenerateRandomBytes(size_t n) {
+  std::ifstream urandom("/dev/urandom", std::ios::in | std::ios::binary);
+  if (!urandom) {
+    std::cerr << "Failed to open /dev/urandom" << std::endl;
+    return "";
+  }
+
+  std::string buffer(n, '\0');
+  urandom.read(&buffer[0], n);
+  if (!urandom) {
+    std::cerr << "Failed to read random bytes from /dev/urandom" << std::endl;
+    return "";
+  }
+
+  return buffer;
+}
+
 std::unique_ptr<quic::QuicSimpleServerBackend>
 QuicToyServer::MemoryCacheBackendFactory::CreateBackend() {
   auto memory_cache_backend = std::make_unique<QuicMemoryCacheBackend>();
@@ -85,23 +103,15 @@ QuicToyServer::MemoryCacheBackendFactory::CreateBackend() {
     memory_cache_backend->EnableWebTransport();
   }
   if (quiche::GetQuicheCommandLineFlag(FLAGS_num_cached_bytes) > 0) {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    static std::uniform_int_distribution<unsigned char> dist(32, 126); // ASCII
-
-    // Generate a random body of n bytes
-    static thread_local std::string buffer;
-    buffer.resize(FLAGS_num_cached_bytes);
-    for (size_t i = 0; i < FLAGS_num_cached_bytes; i++) {
-      buffer[i] = static_cast<char>(dist(gen));
+    auto n = quiche::GetQuicheCommandLineFlag(FLAGS_num_cached_bytes);
+    auto buffer = GenerateRandomBytes(n);
+    if (!buffer.empty()) {
+      // Add a response at <host>/<n>
+      constexpr char host[] = "www.example.org";
+      auto path = "/" + std::to_string(n);
+      auto code = 200;
+      memory_cache_backend->AddSimpleResponse(host, path, code, buffer);
     }
-
-    // Add a response at <defaultHost>/<n>
-    constexpr char defaultHost[] = "www.example.org";
-    auto path = "/" + std::to_string(FLAGS_num_cached_bytes);
-    const int response_code = 200;
-    memory_cache_backend->AddSimpleResponse(defaultHost, path, response_code,
-                                            std::string_view(buffer));
   }
 
   if (!quiche::GetQuicheCommandLineFlag(FLAGS_connect_proxy_destinations)
