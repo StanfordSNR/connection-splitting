@@ -84,9 +84,22 @@ class QUICBenchmark(BaseBenchmark):
               f'--certificate_file={self.certfile} '\
               f'--key_file={self.keyfile} '\
               f'--num_cached_bytes={self.n}'
+
+        condition = threading.Condition()
+        def notify_when_ready(line):
+            if 'Serving' in line:
+                with condition:
+                    condition.notify()
+
+        # The start_server() function blocks until the server is ready to
+        # accept client requests. That is, when we observe the 'Serving'
+        # string in the server output.
         self.net.popen(self.net.h2, cmd, background=True,
-            console_logger=DEBUG, logfile=logfile)
-        time.sleep(1)
+            console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
+        with condition:
+            notified = condition.wait(timeout=SETUP_TIMEOUT)
+            if not notified:
+                raise TimeoutError(f'start_server timeout {SETUP_TIMEOUT}s')
 
     def run_client(self, logfile) -> Optional[Tuple[int, float]]:
         """Returns the status code and runtime (seconds) of the GET request.

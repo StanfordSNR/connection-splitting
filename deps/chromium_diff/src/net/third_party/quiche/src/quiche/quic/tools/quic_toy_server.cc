@@ -175,6 +175,7 @@ int QuicToyServer::Start() {
     return 1;
   }
 
+  std::cerr << "Serving on port " << FLAGS_port << std::endl;
   server->HandleEventsForever();
   return 0;
 }
