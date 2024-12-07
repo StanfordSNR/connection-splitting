@@ -14,6 +14,7 @@ DEFAULT_SSL_KEYFILE_TCP = f'deps/certs/out/leaf_cert.key'
 
 
 def benchmark_http1(net, args):
+    assert not (args.topology == 'direct' and args.pep)
     bm = TCPBenchmark(
         net,
         args.n,
@@ -77,6 +78,10 @@ if __name__ == '__main__':
         help='Directory where host logs are written, in server.log and client.log')
     exp_config.add_argument('--network-statistics', action='store_true',
         help='Include measured network statistics in experiment output')
+    exp_config.add_argument('--topology',
+        choices=['one_hop', 'direct'], default='one_hop',
+        help='Network topology to use. If "direct", uses the network path '\
+             'properties for the "near path segment" i.e. Link 1.')
 
     ###########################################################################
     # Network Configurations
@@ -113,7 +118,7 @@ if __name__ == '__main__':
         help='Number of bytes to download in the HTTP/1.1 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
     tcp.add_argument('-cca', '--congestion-control',
-        choices=['cubic', 'bbr', 'bbr_cubic'], default='cubic',
+        choices=['cubic', 'bbr'], default='cubic',
         help='Congestion control algorithm at endpoints')
     tcp.add_argument('--pep', action='store_true',
         help='Enable PEPsal, a connection-splitting TCP PEP')
@@ -151,8 +156,13 @@ if __name__ == '__main__':
     webrtc.set_defaults(ty='benchmark', benchmark=benchmark_webrtc)
 
     args = parser.parse_args()
-    net = OneHopNetwork(args.delay1, args.delay2, args.loss1, args.loss2,
-        args.bw1, args.bw2, args.jitter1, args.jitter2)
+    if args.topology == 'one_hop':
+        net = OneHopNetwork(args.delay1, args.delay2, args.loss1, args.loss2,
+            args.bw1, args.bw2, args.jitter1, args.jitter2)
+    elif args.topology == 'direct':
+        net = DirectNetwork(args.delay1, args.loss1, args.bw1, args.jitter1)
+    else:
+        raise NotImplementedError(args.topology)
 
     try:
         if args.ty == 'cli':
