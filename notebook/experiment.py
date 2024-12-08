@@ -79,6 +79,9 @@ class NetworkSetting:
             self.labels.append(key)
             self.labels.sort()
 
+    def get(self, key):
+        return self.settings.get(key)
+
     def mirror(self):
         return NetworkSetting(
             delay1=self.settings['delay2'],
@@ -103,6 +106,20 @@ class NetworkSetting:
         keys = list(sorted(self.settings.keys()))
         value += '_'.join([str(self.settings[key]) for key in keys])
         return value
+
+
+class DirectNetworkSetting(NetworkSetting):
+    def __init__(self, delay: Optional[int]=None, loss: Optional[str]=None,
+                 bw: Optional[int]=None, jitter: Optional[int]=None):
+        super().__init__(delay1=delay, loss1=loss, bw1=bw, jitter1=jitter)
+        for key in ['delay2', 'loss2', 'bw2', 'jitter2']:
+            del self.settings[key]
+        self.settings['topology'] = 'direct'
+        self.labels.append('topology')
+        self.labels.sort()
+
+    def mirror(self):
+        raise NotImplementedError('cannot mirror a direct network')
 
 
 class Experiment:

@@ -62,7 +62,13 @@ class RawDataFile:
 
 
 class RawDataParser:
-    def __init__(self, exp: Experiment, max_ds, max_ns):
+    def __init__(self, exp: Experiment, max_ds, max_ns, cartesian):
+        """Parameters:
+        - cartesian: If True, takes the Cartesian product of network settings
+          and data sizes in the experiment. If False, zips the network settings
+          and data sizes one-to-one.
+        """
+        self.cartesian = cartesian
         self.exp = exp
         self.data = {}
         self._max_ds = max_ds
@@ -77,10 +83,17 @@ class RawDataParser:
             self.data[treatment] = {}
             max_ns = self._max_ns[treatment]
             max_ds = self._max_ds[treatment]
-            for network_setting in self.exp.network_settings[:max_ns]:
-                self.data[treatment][network_setting] = {}
-                for data_size in self.exp.data_sizes[:max_ds]:
-                    self.data[treatment][network_setting][data_size] = []
+            network_settings = self.exp.network_settings[:max_ns]
+            data_sizes = self.exp.data_sizes[:max_ds]
+            if self.cartesian:
+                for network_setting in network_settings:
+                    self.data[treatment][network_setting] = {}
+                    for data_size in data_sizes:
+                        self.data[treatment][network_setting][data_size] = []
+            else:
+                assert len(network_settings) == len(data_sizes)
+                for (ns, ds) in zip(network_settings, data_sizes):
+                    self.data[treatment][ns] = {ds: []}
 
     def _parse_files(self):
         for treatment in self.exp.get_treatments():
@@ -140,9 +153,25 @@ class RawData(RawDataParser):
         exp: Experiment,
         execute=False,
         max_retries=5,
-        max_data_sizes: Dict[str, int]={}, # treatment label -> data size index
-        max_networks: Dict[str, int]={}, # treatment label -> network setting index
+        cartesian=True,
+        max_data_sizes: Dict[str, int]={},
+        max_networks: Dict[str, int]={},
     ):
+        """Parameters:
+        - execute: Whether to collect missing data points.
+        - max_retries: Maximum number of times to retry collecting missing data
+          points after the first attempt.
+        - cartesian: If True, takes the Cartesian product of network settings
+          and data sizes in the experiment. If False, zips the network settings
+          and data sizes one-to-one.
+        - max_data_sizes: Map from treatment label -> data size index. For that
+          treatment, only collects data points with data sizes up to that index.
+          Used to collect data points with unreasonably low throughput.
+        - max_networks: Map from treatment label -> network setting index. For
+          that treatment, only collects data points with network settings up to
+          that index. Used to avoid collecting data points with unreasonably
+          low throughput.
+        """
         max_ds = defaultdict(lambda: len(exp.data_sizes))
         max_ns = defaultdict(lambda: len(exp.network_settings))
         for treatment, ds in max_data_sizes.items():
@@ -150,7 +179,7 @@ class RawData(RawDataParser):
         for treatment, ns in max_networks.items():
             max_ns[treatment] = min(ns, len(exp.network_settings))
 
-        super().__init__(exp, max_ds=max_ds, max_ns=max_ns)
+        super().__init__(exp, max_ds=max_ds, max_ns=max_ns, cartesian=cartesian)
 
         for i in range(max_retries):
             missing_data = self._find_missing_data()
@@ -173,10 +202,7 @@ class RawData(RawDataParser):
                 if network_data is None:
                     continue
                 file = RawDataFile(treatment, network_setting)
-                for data_size in self.exp.data_sizes:
-                    size_data = network_data.get(data_size)
-                    if size_data is None:
-                        continue
+                for data_size, size_data in sorted(network_data.items()):
                     num_results = len(size_data)
                     num_missing = self.exp.num_trials - num_results
                     if num_missing > 0:
