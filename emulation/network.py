@@ -54,15 +54,28 @@ class EmulatedNetwork:
         self.popen(host, cmd)
 
         # Add HTB for bandwidth
+        # Take the min because sch_htb complains about the quantum being too big
+        # past 200,000 bytes. Otherwise calculate using the default r2q.
+        r2q = 10
+        quantum = min(int(bw*1000000/8 / r2q), 200000)
         self.popen(host, f'tc qdisc add dev {iface} parent 2: handle 3: ' \
                          f'htb default 10')
         self.popen(host, f'tc class add dev {iface} parent 3: ' \
-                         f'classid 10 htb rate {bw}Mbit')
+                         f'classid 10 htb rate {bw}Mbit quantum {quantum}')
 
         # Add RED for queue management
+        # The harddrop byte limit needs to be a minimum value or RED will be
+        # unable to calculate the EWMA constant so that min >= avpkt
+        limit = max(int(bdp*4), 1000*3*4*4)
+        qmax = int(limit/4)
+        qmin = int(qmax/3)
+        avpkt = 1000
+        # RED: WARNING. Burst (2*min+max)/(3*avpkt) seems to be too large.
+        # RTNETLINK answers: Invalid argument
+        burst = int(1 + qmin / avpkt)
         self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
-                         f'red limit {bdp*4} avpkt 1000 ' \
-                         f'adaptive harddrop bandwidth {bw}Mbit')
+                         f'red limit {limit} avpkt {avpkt} ' \
+                         f'adaptive harddrop bandwidth {bw}Mbit burst {burst}', console_logger=WARN)
 
         # Turn off tso and gso to send MTU-sized packets
         gso = 'on' if gso else 'off'
