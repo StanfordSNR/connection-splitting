@@ -62,8 +62,23 @@ class RawDataFile:
 
 
 class RawDataParser:
-    def __init__(self, exp: Experiment, max_ds, max_ns, cartesian):
+    def __init__(
+        self,
+        exp: Experiment,
+        max_data_sizes: Dict[str, int],
+        max_networks: Dict[str, int],
+        cartesian: bool,
+    ):
         """Parameters:
+        - max_data_sizes: Map from treatment label -> data size index. For that
+          treatment, only collects data points with data sizes up to that index.
+          Used to collect data points with unreasonably low throughput. If
+          labels are not provided, defaults to all data sizes.
+        - max_networks: Map from treatment label -> network setting index. For
+          that treatment, only collects data points with network settings up to
+          that index. Used to avoid collecting data points with unreasonably
+          low throughput. If labels are not provided, defaults to all data
+          sizes.
         - cartesian: If True, takes the Cartesian product of network settings
           and data sizes in the experiment. If False, zips the network settings
           and data sizes one-to-one.
@@ -71,6 +86,14 @@ class RawDataParser:
         self.cartesian = cartesian
         self.exp = exp
         self.data = {}
+
+        max_ds = defaultdict(lambda: len(exp.data_sizes))
+        max_ns = defaultdict(lambda: len(exp.network_settings))
+        for treatment, ds in max_data_sizes.items():
+            max_ds[treatment] = min(ds, len(exp.data_sizes))
+        for treatment, ns in max_networks.items():
+            max_ns[treatment] = min(ns, len(exp.network_settings))
+
         self._max_ds = max_ds
         self._max_ns = max_ns
         self._data_sizes = set(exp.data_sizes)
@@ -172,20 +195,16 @@ class RawData(RawDataParser):
           and data sizes one-to-one.
         - max_data_sizes: Map from treatment label -> data size index. For that
           treatment, only collects data points with data sizes up to that index.
-          Used to collect data points with unreasonably low throughput.
+          Used to collect data points with unreasonably low throughput. If
+          labels are not provided, defaults to all data sizes.
         - max_networks: Map from treatment label -> network setting index. For
           that treatment, only collects data points with network settings up to
           that index. Used to avoid collecting data points with unreasonably
-          low throughput.
+          low throughput. If labels are not provided, defaults to all data
+          sizes.
         """
-        max_ds = defaultdict(lambda: len(exp.data_sizes))
-        max_ns = defaultdict(lambda: len(exp.network_settings))
-        for treatment, ds in max_data_sizes.items():
-            max_ds[treatment] = min(ds, len(exp.data_sizes))
-        for treatment, ns in max_networks.items():
-            max_ns[treatment] = min(ns, len(exp.network_settings))
-
-        super().__init__(exp, max_ds=max_ds, max_ns=max_ns, cartesian=cartesian)
+        RawDataParser.__init__(self, exp, max_data_sizes=max_data_sizes,
+            max_networks=max_networks, cartesian=cartesian)
 
         for i in range(max_retries):
             missing_data = self._find_missing_data()
