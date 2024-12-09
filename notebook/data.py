@@ -67,7 +67,6 @@ class RawDataParser:
         exp: Experiment,
         max_data_sizes: Dict[str, int],
         max_networks: Dict[str, int],
-        cartesian: bool,
     ):
         """Parameters:
         - max_data_sizes: Map from treatment label -> data size index. For that
@@ -79,11 +78,7 @@ class RawDataParser:
           that index. Used to avoid collecting data points with unreasonably
           low throughput. If labels are not provided, defaults to all data
           sizes.
-        - cartesian: If True, takes the Cartesian product of network settings
-          and data sizes in the experiment. If False, zips the network settings
-          and data sizes one-to-one.
         """
-        self.cartesian = cartesian
         self.exp = exp
         self.data = {}
 
@@ -108,7 +103,7 @@ class RawDataParser:
             max_ds = self._max_ds[treatment]
             network_settings = self.exp.network_settings[:max_ns]
             data_sizes = self.exp.data_sizes[:max_ds]
-            if self.cartesian:
+            if self.exp.cartesian:
                 for network_setting in network_settings:
                     self.data[treatment][network_setting] = {}
                     for data_size in data_sizes:
@@ -182,7 +177,6 @@ class RawData(RawDataParser):
         exp: Experiment,
         execute=False,
         max_retries=5,
-        cartesian=True,
         max_data_sizes: Dict[str, int]={},
         max_networks: Dict[str, int]={},
     ):
@@ -190,9 +184,6 @@ class RawData(RawDataParser):
         - execute: Whether to collect missing data points.
         - max_retries: Maximum number of times to retry collecting missing data
           points after the first attempt.
-        - cartesian: If True, takes the Cartesian product of network settings
-          and data sizes in the experiment. If False, zips the network settings
-          and data sizes one-to-one.
         - max_data_sizes: Map from treatment label -> data size index. For that
           treatment, only collects data points with data sizes up to that index.
           Used to collect data points with unreasonably low throughput. If
@@ -204,7 +195,7 @@ class RawData(RawDataParser):
           sizes.
         """
         RawDataParser.__init__(self, exp, max_data_sizes=max_data_sizes,
-            max_networks=max_networks, cartesian=cartesian)
+            max_networks=max_networks)
 
         for i in range(max_retries):
             missing_data = self._find_missing_data()

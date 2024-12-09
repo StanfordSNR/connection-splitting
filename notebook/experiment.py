@@ -129,14 +129,59 @@ class Experiment:
                  treatments: List[Treatment],
                  network_settings: List[NetworkSetting],
                  data_sizes: List[int],
-                 timeout=math.inf):
+                 timeout=math.inf,
+                 network_losses: List[str]=[],
+                 network_delays: List[int]=[],
+                 network_bws: List[int]=[],
+                 cartesian: bool=True):
+        """Parameters:
+        - network_settings: List of network settings to test in the experiment.
+          Typically used if varying data size as the test parameter. If empty,
+          uses `network_losses`, `network_delays`, and `network_bws` to generate
+          the space of (direct) network settings to test and uses data sizes
+          that are 10x the bottleneck bandwidth for the network setting.
+        - data_sizes: List of data sizes to test in the experiment. Ignored if
+          `network_settings` is an empty list.
+        - network_losses: Used if `network_settings` is an empty list to
+          generate the space of (direct) network settings to test. Sorted order.
+        - network_delays: Used if `network_settings` is an empty list to
+          generate the space of (direct) network settings to test. Sorted order.
+        - network_bws: Used if `network_settings` is an empty list to
+          generate the space of (direct) network settings to test. Sorted order.
+        - cartesian: If True, takes the Cartesian product of network settings
+          and data sizes in the experiment. If False, zips the network settings
+          and data sizes one-to-one.
+        """
         self.num_trials = num_trials
         self.treatments = [x.label() for x in treatments]
-        self.network_settings = [x.label() for x in network_settings]
+
+        if len(network_settings) > 0:
+            self._network_settings = { x.label(): x for x in network_settings }
+            self.network_settings = [x.label() for x in network_settings]
+            self.data_sizes = data_sizes
+            self.network_losses = []
+            self.network_delays = []
+            self.network_bws = []
+        else:
+            self._network_settings = {}
+            self.network_settings = []
+            self.data_sizes = []
+            self.network_losses = network_losses
+            self.network_delays = network_delays
+            self.network_bws = network_bws
+            data_size = lambda bw: int(10*1000000*bw/8)  # 10x the bottleneck bandwidth
+            for loss in network_losses:
+                for delay in network_delays:
+                    for bw in network_bws:
+                        ns = DirectNetworkSetting(loss=loss, delay=delay, bw=bw)
+                        ns_label = ns.label()
+                        self._network_settings[ns_label] = ns
+                        self.network_settings.append(ns_label)
+                        self.data_sizes.append(data_size(bw))
+
         self._treatments = { x.label(): x for x in treatments }
-        self._network_settings = { x.label(): x for x in network_settings }
-        self.data_sizes = data_sizes
         self.timeout = timeout
+        self.cartesian = cartesian
 
     def get_treatment(self, label: str) -> Treatment:
         return self._treatments[label]
