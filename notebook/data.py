@@ -171,59 +171,11 @@ class RawDataParser:
         return True
 
 
-class RawData(RawDataParser):
-    def __init__(
-        self,
-        exp: Experiment,
-        execute=False,
-        max_retries=5,
-        max_data_sizes: Dict[str, int]={},
-        max_networks: Dict[str, int]={},
-    ):
-        """Parameters:
-        - execute: Whether to collect missing data points.
-        - max_retries: Maximum number of times to retry collecting missing data
-          points after the first attempt.
-        - max_data_sizes: Map from treatment label -> data size index. For that
-          treatment, only collects data points with data sizes up to that index.
-          Used to collect data points with unreasonably low throughput. If
-          labels are not provided, defaults to all data sizes.
-        - max_networks: Map from treatment label -> network setting index. For
-          that treatment, only collects data points with network settings up to
-          that index. Used to avoid collecting data points with unreasonably
-          low throughput. If labels are not provided, defaults to all data
-          sizes.
-        """
-        RawDataParser.__init__(self, exp, max_data_sizes=max_data_sizes,
-            max_networks=max_networks)
-
-        for i in range(max_retries):
-            missing_data = self._find_missing_data()
-            if len(missing_data) == 0 or not execute:
-                break
-            self._collect_missing_data(missing_data)
-            self._reset()
-            self._parse_files()
-
-        # Print remaining missing data
-        for file, data_size, num_missing in missing_data:
-            print('MISSING:', file.cmd(data_size, num_missing))
-
-    def _find_missing_data(self) -> List[Tuple[RawDataFile, int, int]]:
-        missing_data = []
-        for treatment in self.exp.get_treatments():
-            treatment_data = self.data[treatment.label()]
-            for network_setting in self.exp.get_network_settings():
-                network_data = treatment_data.get(network_setting.label())
-                if network_data is None:
-                    continue
-                file = RawDataFile(treatment, network_setting)
-                for data_size, size_data in sorted(network_data.items()):
-                    num_results = len(size_data)
-                    num_missing = self.exp.num_trials - num_results
-                    if num_missing > 0:
-                        missing_data.append((file, data_size, num_missing))
-        return missing_data
+"""For executing mininet commands to collect missing data.
+"""
+class RawDataExecutor:
+    def __init__(self):
+        pass
 
     def _collect_missing_data(
         self,
@@ -281,6 +233,62 @@ class RawData(RawDataParser):
         if exitcode != 0:
             print(f'execute error: {exitcode}')
             exit(1)
+
+
+class RawData(RawDataParser, RawDataExecutor):
+    def __init__(
+        self,
+        exp: Experiment,
+        execute=False,
+        max_retries=5,
+        max_data_sizes: Dict[str, int]={},
+        max_networks: Dict[str, int]={},
+    ):
+        """Parameters:
+        - execute: Whether to collect missing data points.
+        - max_retries: Maximum number of times to retry collecting missing data
+          points after the first attempt.
+        - max_data_sizes: Map from treatment label -> data size index. For that
+          treatment, only collects data points with data sizes up to that index.
+          Used to collect data points with unreasonably low throughput. If
+          labels are not provided, defaults to all data sizes.
+        - max_networks: Map from treatment label -> network setting index. For
+          that treatment, only collects data points with network settings up to
+          that index. Used to avoid collecting data points with unreasonably
+          low throughput. If labels are not provided, defaults to all data
+          sizes.
+        """
+        RawDataParser.__init__(self, exp, max_data_sizes=max_data_sizes,
+            max_networks=max_networks)
+        RawDataExecutor.__init__(self)
+
+        for i in range(max_retries):
+            missing_data = self._find_missing_data()
+            if len(missing_data) == 0 or not execute:
+                break
+            self._collect_missing_data(missing_data)
+            self._reset()
+            self._parse_files()
+
+        # Print remaining missing data
+        for file, data_size, num_missing in missing_data:
+            print('MISSING:', file.cmd(data_size, num_missing))
+
+    def _find_missing_data(self) -> List[Tuple[RawDataFile, int, int]]:
+        missing_data = []
+        for treatment in self.exp.get_treatments():
+            treatment_data = self.data[treatment.label()]
+            for network_setting in self.exp.get_network_settings():
+                network_data = treatment_data.get(network_setting.label())
+                if network_data is None:
+                    continue
+                file = RawDataFile(treatment, network_setting)
+                for data_size, size_data in sorted(network_data.items()):
+                    num_results = len(size_data)
+                    num_missing = self.exp.num_trials - num_results
+                    if num_missing > 0:
+                        missing_data.append((file, data_size, num_missing))
+        return missing_data
 
 
 class PlottableDataPoint:
