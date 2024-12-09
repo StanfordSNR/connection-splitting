@@ -1,7 +1,6 @@
 """
 Define the data needed for an experiment.
 """
-import math
 from typing import List, Optional
 
 
@@ -129,7 +128,7 @@ class Experiment:
                  treatments: List[Treatment],
                  network_settings: List[NetworkSetting],
                  data_sizes: List[int],
-                 timeout=math.inf,
+                 timeout: Optional[int]=None,
                  network_losses: List[str]=[],
                  network_delays: List[int]=[],
                  network_bws: List[int]=[],

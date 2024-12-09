@@ -6,10 +6,10 @@ import subprocess
 import time
 
 from collections import defaultdict
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 
 from common import SIDEKICK_HOME
-from experiment import Treatment, NetworkSetting, Experiment
+from experiment import Treatment, NetworkSetting, DirectNetworkSetting, Experiment
 
 DATA_HOME = f'{SIDEKICK_HOME}/data'
 
@@ -40,8 +40,11 @@ class RawDataFile:
     def fulllog_filename(self) -> str:
         return f'{self.base_path}.log'
 
-    def cmd(self, data_size: int, num_trials: int):
+    def cmd(self, data_size: int, num_trials: int, timeout: Optional[int]):
         cmd = ['sudo -E python3 emulation/main.py']
+        if timeout is not None:
+            cmd.append('--timeout')
+            cmd.append(str(timeout))
         for key in self._network_setting.labels:
             cmd.append(f'--{key}')
             cmd.append(str(self._network_setting.settings[key]))
@@ -150,7 +153,8 @@ class RawDataParser:
                 # If the experiment would timeout with our current settings,
                 # then this counts as a valid data point.
                 # Later validation parses the data point for a metric.
-                if output['time_s'] >= self.exp.timeout:
+                timeout = self.exp.timeout
+                if timeout is not None and output['time_s'] >= timeout:
                     yield (data_size, output)
 
     def _maybe_add(self, treatment: str, network_setting: str, data_size: int,
@@ -174,8 +178,8 @@ class RawDataParser:
 """For executing mininet commands to collect missing data.
 """
 class RawDataExecutor:
-    def __init__(self):
-        pass
+    def __init__(self, timeout):
+        self.timeout = timeout
 
     def _collect_missing_data(
         self,
@@ -194,7 +198,7 @@ class RawDataExecutor:
 
     def _execute_chunk(self, file: RawDataFile, data_size: int, num_trials: int):
         # Start the process
-        cmd = file.cmd(data_size, num_trials)
+        cmd = file.cmd(data_size, num_trials, timeout=self.timeout)
         print(cmd, end=' ')
         p = subprocess.Popen(
             cmd.split(' '),
@@ -260,7 +264,7 @@ class RawData(RawDataParser, RawDataExecutor):
         """
         RawDataParser.__init__(self, exp, max_data_sizes=max_data_sizes,
             max_networks=max_networks)
-        RawDataExecutor.__init__(self)
+        RawDataExecutor.__init__(self, exp.timeout)
 
         for i in range(max_retries):
             missing_data = self._find_missing_data()
@@ -272,7 +276,7 @@ class RawData(RawDataParser, RawDataExecutor):
 
         # Print remaining missing data
         for file, data_size, num_missing in missing_data:
-            print('MISSING:', file.cmd(data_size, num_missing))
+            print('MISSING:', file.cmd(data_size, num_missing, exp.timeout))
 
     def _find_missing_data(self) -> List[Tuple[RawDataFile, int, int]]:
         missing_data = []
@@ -288,6 +292,93 @@ class RawData(RawDataParser, RawDataExecutor):
                     num_missing = self.exp.num_trials - num_results
                     if num_missing > 0:
                         missing_data.append((file, data_size, num_missing))
+        return missing_data
+
+
+class DirectRawData(RawDataParser, RawDataExecutor):
+    def __init__(
+        self,
+        exp: Experiment,
+        execute=False,
+        max_retries=10,
+    ):
+        """Parameters:
+        - execute: Whether to collect missing data points.
+        - max_retries: Maximum number of times to retry collecting missing data
+          points after the first attempt.
+        """
+        RawDataParser.__init__(self, exp, max_data_sizes={}, max_networks={})
+        RawDataExecutor.__init__(self, exp.timeout)
+
+        for i in range(max_retries):
+            missing_data = self._find_missing_data()
+            if len(missing_data) == 0 or not execute:
+                break
+            self._collect_missing_data(missing_data)
+            self._reset()
+            self._parse_files()
+
+        # Print remaining missing data
+        for file, data_size, num_missing in missing_data:
+            print('MISSING:', file.cmd(data_size, num_missing, exp.timeout))
+
+    def _find_missing_data(self) -> List[Tuple[RawDataFile, int, int]]:
+        missing_data = []
+        treatments = self.exp.get_treatments()
+        assert len(treatments) == 1
+        treatment = treatments[0]
+        treatment_data = self.data[treatment.label()]
+
+        # The length of the connection increases for larger delays, bw,
+        # and loss. BFS within the provided parameter space until the
+        # connection time exceeds a threshold MAX_TRIAL_TIME, in seconds.
+        # The number of retries may need to be increased to explore the full
+        # parameter space in a single execution.
+        xs = self.exp.network_losses
+        ys = self.exp.network_delays
+        zs = self.exp.network_bws
+        visited = set()
+        queue = [(0, 0, 0)]
+        while len(queue) > 0:
+            i, j, k = queue.pop(0)
+            if (i, j, k) in visited:
+                continue
+            visited.add((i, j, k))
+
+            # Get the existing value for this data point.
+            ns = DirectNetworkSetting(loss=xs[i], delay=ys[j], bw=zs[k])
+            network_data = treatment_data[ns.label()]
+            assert len(network_data) == 1
+            data_size, outputs = next(iter(network_data.items()))
+
+            # If there are any trials remaining, then execute the data point
+            # (and don't explore more).
+            num_missing = self.exp.num_trials - len(outputs)
+            if num_missing > 0:
+                file = RawDataFile(treatment, ns)
+                missing_data.append((file, data_size, num_missing))
+                continue
+
+            # Else the data point has all its trials complete. Get the list
+            # of data points that would be +1 from this point within bounds.
+            to_visit = []
+            if i+1 < len(xs):
+                to_visit.append((i+1, j, k))
+            if j+1 < len(ys):
+                to_visit.append((i, j+1, k))
+            if k+1 < len(zs):
+                to_visit.append((i, j, k+1))
+
+            # If any of the current data points timed out, then stop exploring.
+            # Otherwise, explore.
+            timeout = False
+            for output in outputs:
+                if 'timeout' in output and output['timeout']:
+                    timeout = True
+                    break
+            if not timeout:
+                queue += to_visit
+
         return missing_data
 
 
