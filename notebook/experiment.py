@@ -1,6 +1,7 @@
 """
 Define the data needed for an experiment.
 """
+import math
 from typing import List, Optional
 
 
@@ -127,13 +128,15 @@ class Experiment:
                  num_trials: int,
                  treatments: List[Treatment],
                  network_settings: List[NetworkSetting],
-                 data_sizes: List[int]):
+                 data_sizes: List[int],
+                 timeout=math.inf):
         self.num_trials = num_trials
         self.treatments = [x.label() for x in treatments]
         self.network_settings = [x.label() for x in network_settings]
         self._treatments = { x.label(): x for x in treatments }
         self._network_settings = { x.label(): x for x in network_settings }
         self.data_sizes = data_sizes
+        self.timeout = timeout
 
     def get_treatment(self, label: str) -> Treatment:
         return self._treatments[label]

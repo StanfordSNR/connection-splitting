@@ -128,6 +128,12 @@ class RawDataParser:
         for output in line['outputs']:
             if output['success']:
                 yield (data_size, output)
+            elif 'timeout' in output and output['timeout']:
+                # If the experiment would timeout with our current settings,
+                # then this counts as a valid data point.
+                # Later validation parses the data point for a metric.
+                if output['time_s'] >= self.exp.timeout:
+                    yield (data_size, output)
 
     def _maybe_add(self, treatment: str, network_setting: str, data_size: int,
                   value) -> bool:
@@ -305,6 +311,8 @@ class PlottableData:
                 if results is None:
                     continue
                 for data_size, outputs in results.items():
+                    outputs = list(filter(lambda output:
+                        'timeout' not in output or not output['timeout'], outputs))
                     if len(outputs) == 0:
                         continue
                     values = [output[metric] for output in outputs]
