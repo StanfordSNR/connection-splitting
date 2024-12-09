@@ -36,6 +36,9 @@ class BenchmarkResult:
     def set_success(self, success: bool):
         self.outputs[-1]['success'] = success
 
+    def set_timeout(self, timeout: bool):
+        self.outputs[-1]['timeout'] = timeout
+
     def set_time_s(self, time_s: float):
         self.outputs[-1]['time_s'] = time_s
         self.outputs[-1]['throughput_mbps'] = \
@@ -101,7 +104,7 @@ class QUICBenchmark(BaseBenchmark):
             if not notified:
                 raise TimeoutError(f'start_server timeout {SETUP_TIMEOUT}s')
 
-    def run_client(self, logfile) -> Optional[Tuple[int, float]]:
+    def run_client(self, logfile, timeout) -> Optional[Tuple[int, float]]:
         """Returns the status code and runtime (seconds) of the GET request.
         """
         base = 'deps/chromium/src'
@@ -137,16 +140,19 @@ class QUICBenchmark(BaseBenchmark):
             except:
                 pass
 
-        self.net.popen(self.net.h1, cmd, background=False,
-            console_logger=DEBUG, logfile=logfile, func=parse_result)
-        if len(result) == 0:
+        timeout_flag = self.net.popen(self.net.h1, cmd, background=False,
+            console_logger=DEBUG, logfile=logfile, func=parse_result,
+            timeout=timeout)
+        if timeout_flag:
+            return (HTTP_TIMEOUT_STATUSCODE, timeout)
+        elif len(result) == 0:
             WARN('QUIC client failed to return result')
         elif len(result) > 1:
             WARN(f'QUIC client returned multiple results {result}')
         else:
             return result[0]
 
-    def run(self, label, logdir, num_trials, network_statistics):
+    def run(self, label, logdir, num_trials, timeout, network_statistics):
         # Start the server
         self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
 
@@ -168,7 +174,10 @@ class QUICBenchmark(BaseBenchmark):
             while num_trials_left > 0 and total_time_s < LOG_CHUNK_TIME:
                 result.append_new_output()
                 self.net.reset_statistics()
-                output = self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
+                output = self.run_client(
+                    logfile=f'{logdir}/{CLIENT_LOGFILE}',
+                    timeout=timeout,
+                )
 
                 # Error
                 if output is None:
@@ -181,7 +190,8 @@ class QUICBenchmark(BaseBenchmark):
                     statistics = self.net.snapshot_statistics()
                     result.set_network_statistics(statistics)
                 status_code, time_s = output
-                result.set_success(status_code == 200)
+                result.set_success(status_code == HTTP_OK_STATUSCODE)
+                result.set_timeout(status_code == HTTP_TIMEOUT_STATUSCODE)
                 result.set_time_s(time_s)
 
                 total_time_s += time_s
@@ -230,7 +240,7 @@ class TCPBenchmark(BaseBenchmark):
             if not notified:
                 raise TimeoutError(f'start_server timeout {SETUP_TIMEOUT}s')
 
-    def run_client(self, logfile) -> Optional[Tuple[int, float]]:
+    def run_client(self, logfile, timeout) -> Optional[Tuple[int, float]]:
         """Returns the status code and runtime (seconds) of the GET request.
         """
         cmd = f'python webserver/http_client.py --server-ip {self.server_ip} '\
@@ -251,9 +261,12 @@ class TCPBenchmark(BaseBenchmark):
             except:
                 pass
 
-        self.net.popen(self.net.h1, cmd, background=False,
-            console_logger=DEBUG, logfile=logfile, func=parse_result)
-        if len(result) == 0:
+        timeout_flag = self.net.popen(self.net.h1, cmd, background=False,
+            console_logger=DEBUG, logfile=logfile, func=parse_result,
+            timeout=timeout)
+        if timeout_flag:
+            return (HTTP_TIMEOUT_STATUSCODE, timeout)
+        elif len(result) == 0:
             WARN('TCP client failed to return result')
         elif len(result) > 1:
             WARN(f'TCP client returned multiple results {result}')
@@ -283,7 +296,7 @@ class TCPBenchmark(BaseBenchmark):
             if not notified:
                 raise TimeoutError(f'start_tcp_pep timeout {SETUP_TIMEOUT}s')
 
-    def run(self, label, logdir, num_trials, network_statistics):
+    def run(self, label, logdir, num_trials, timeout, network_statistics):
         # Start the server
         self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
 
@@ -309,7 +322,10 @@ class TCPBenchmark(BaseBenchmark):
             while num_trials_left > 0 and total_time_s < LOG_CHUNK_TIME:
                 result.append_new_output()
                 self.net.reset_statistics()
-                output = self.run_client(logfile=f'{logdir}/{CLIENT_LOGFILE}')
+                output = self.run_client(
+                    logfile=f'{logdir}/{CLIENT_LOGFILE}',
+                    timeout=timeout,
+                )
 
                 # Error
                 if output is None:
@@ -322,7 +338,8 @@ class TCPBenchmark(BaseBenchmark):
                     statistics = self.net.snapshot_statistics()
                     result.set_network_statistics(statistics)
                 status_code, time_s = output
-                result.set_success(status_code == 200)
+                result.set_success(status_code == HTTP_OK_STATUSCODE)
+                result.set_timeout(status_code == HTTP_TIMEOUT_STATUSCODE)
                 result.set_time_s(time_s)
 
                 total_time_s += time_s

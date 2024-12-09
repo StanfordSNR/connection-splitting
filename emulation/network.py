@@ -131,7 +131,7 @@ class EmulatedNetwork:
         else:
             return value[0]
 
-    def popen(self, host, cmd, background=False, func=None,
+    def popen(self, host, cmd, background=False, func=None, timeout=None,
               stdout=False, stderr=True, console_logger=TRACE, logfile=None):
         """
         Start a process that executes a command on the given mininet host.
@@ -141,10 +141,17 @@ class EmulatedNetwork:
         - background: whether to run as a background process
         - func: a function to execute on every line of output.
           the function takes as input (line,).
+        - timeout: timeout, in seconds, to use on a mininet host
         - stdout: whether to log stdout to the console
         - stderr: whether to log stderr to the console
         - console_logger: log level function for logging to the console
         - logfile: the logfile to append output (both stdout and stderr) to
+
+        Returns:
+        - If a background process, returns the background process.
+        - If not, returns True if there was a timeout and False if the process
+          executed successfully.
+        - For any other exitcodes, exits the program.
         """
         # Log the command to be executed
         host_str = '' if host is None else f'{host.name} '
@@ -164,9 +171,10 @@ class EmulatedNetwork:
                 exit(1)
             return
 
-        # Execute the command on a mininet host
-        p = host.popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        # Execute the command on a mininet host in the background
         if background:
+            p = host.popen(cmd.split(), stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE, text=True)
             self.background_processes.append(p)
             thread = threading.Thread(
                 target=handle_background_process,
@@ -174,21 +182,33 @@ class EmulatedNetwork:
             )
             thread.start()
             return p
+
+        # Execute the command synchronously with a timeout
+        cmd_input = cmd.split()
+        if timeout is not None:
+            cmd_input = ['timeout', f'{timeout}s'] + cmd_input
+        p = host.popen(cmd_input, stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE, text=True)
+        for line, stream in read_subprocess_pipe(p):
+            if stream == p.stdout and stdout:
+                print(line, end='', file=sys.stderr)
+            if stream == p.stderr and stderr:
+                print(line, end='', file=sys.stderr)
+            if logfile is not None:
+                with open(logfile, 'a') as f:
+                    f.write(line)
+            if func is not None:
+                func(line)
+
+        # Handle the exitcode
+        exitcode = p.wait()
+        if exitcode == 0:
+            return False
+        elif exitcode == LINUX_TIMEOUT_EXITCODE:
+            return True
         else:
-            for line, stream in read_subprocess_pipe(p):
-                if stream == p.stdout and stdout:
-                    print(line, end='', file=sys.stderr)
-                if stream == p.stderr and stderr:
-                    print(line, end='', file=sys.stderr)
-                if logfile is not None:
-                    with open(logfile, 'a') as f:
-                        f.write(line)
-                if func is not None:
-                    func(line)
-            exitcode = p.wait()
-            if exitcode != 0:
-                print(f'{host}({cmd}) = {exitcode}', file=sys.stderr)
-                exit(1)
+            print(f'{host}({cmd}) = {exitcode}', file=sys.stderr)
+            exit(1)
 
     def stop(self):
         for p in self.background_processes:
