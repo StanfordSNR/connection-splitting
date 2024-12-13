@@ -13,16 +13,20 @@ class Treatment:
 
 
 class TCPTreatment(Treatment):
-    def __init__(self, cca: str='cubic', pep: bool=False):
+    def __init__(self, cca: str='cubic', pep: bool=False,
+                 label: Optional[str]=None):
         super().__init__(protocol='tcp')
         self.cca = cca
         self.pep = pep
+        if label is not None:
+            self._label = label
+        elif pep:
+            self._label = f'pep_{self.cca}'
+        else:
+            self._label = f'{self.protocol}_{self.cca}'
 
     def label(self) -> str:
-        if self.pep:
-            return f'pep_{self.cca}'
-        else:
-            return f'{self.protocol}_{self.cca}'
+        return self._label
 
 
 class QUICTreatment(Treatment):
