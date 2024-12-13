@@ -12,8 +12,8 @@ source env/bin/activate
 Install Python dependencies:
 
 ```
+pip install jupyterlab
 pip install matplotlib
-pip install notebook
 ```
 
 ## Jupyter notebook
@@ -21,7 +21,8 @@ pip install notebook
 In the remote server:
 
 ```
-jupyter notebook --no-browser
+tmux
+jupyterlab --no-browser
 ```
 
 In a separate shell, forward the SSH port to the local machine:
