@@ -1,4 +1,5 @@
 from ssh import SSH
+import argparse
 
 def install_linux(tag, ssh_client, clone=True, linux_dir="/home/ubuntu/linux"):
     print(f"Installing Linux kernel {tag} on host {ssh_client.ip}")
@@ -61,3 +62,25 @@ def install_linux(tag, ssh_client, clone=True, linux_dir="/home/ubuntu/linux"):
     # Check version
     print(f"Installation of {tag} complete on {ssh_client.ip}")
     ssh_client.run("uname -r")
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Linux kernel installer',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument('--ip', type=str,
+                        help="IP of the remote server")
+    parser.add_argument('--version', type=str,
+                        help="Linux branch or tag to checkout and build")
+    args = parser.parse_args()
+
+    client = SSH(args.ip)
+    client.connect()
+
+    install_linux(args.tag, client, clone=False)
+
+    print("Installed Linux:")
+    client.run("uname -r")
+
+    client.close()
