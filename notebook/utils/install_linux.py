@@ -42,7 +42,7 @@ def install_linux(tag, ssh_client, clone=True, linux_dir="/home/ubuntu/linux"):
 
     # Make
     print("Build...")
-    ssh_client.run("make -j$(nproc)")
+    ssh_client.run("make -j$(nproc)", retry=2)
     print("Done with make")
 
     # Install
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     client = SSH(args.ip)
     client.connect()
 
-    install_linux(args.tag, client, clone=False)
+    install_linux(args.version, client, clone=False)
 
     print("Installed Linux:")
     client.run("uname -r")
