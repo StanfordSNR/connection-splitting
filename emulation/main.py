@@ -119,6 +119,8 @@ if __name__ == '__main__':
     net_config.add_argument('--jitter2', type=int, metavar='MS',
         help='jitter on far path segment with a default delay correlation '\
             f'of {DEFAULT_DELAY_CORR}%% and a paretonormal distribution')
+    net_config.add_argument('--qdisc', type=str, default='red',
+        help='netem queuing discipline')
 
     ###########################################################################
     # HTTP/1.1+TCP benchmark
@@ -172,9 +174,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.topology == 'one_hop':
         net = OneHopNetwork(args.delay1, args.delay2, args.loss1, args.loss2,
-            args.bw1, args.bw2, args.jitter1, args.jitter2)
+            args.bw1, args.bw2, args.jitter1, args.jitter2, args.qdisc)
     elif args.topology == 'direct':
-        net = DirectNetwork(args.delay1, args.loss1, args.bw1, args.jitter1)
+        net = DirectNetwork(args.delay1, args.loss1, args.bw1, args.jitter1,
+            args.qdisc)
     else:
         raise NotImplementedError(args.topology)
 
