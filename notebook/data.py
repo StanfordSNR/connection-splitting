@@ -369,14 +369,13 @@ class DirectRawData(RawDataParser, RawDataExecutor):
             if k+1 < len(zs):
                 to_visit.append((i, j, k+1))
 
-            # If any of the current data points timed out, then stop exploring.
-            # Otherwise, explore.
-            timeout = False
+            # If half or more of the current data points timed out, then stop
+            # exploring. Otherwise, explore.
+            timeouts = 0
             for output in outputs:
                 if 'timeout' in output and output['timeout']:
-                    timeout = True
-                    break
-            if not timeout:
+                    timeouts += 1
+            if timeouts <= int(len(outputs) / 2):
                 queue += to_visit
 
         return missing_data
