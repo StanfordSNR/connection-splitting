@@ -14,6 +14,7 @@ Install Python dependencies:
 ```
 pip install jupyterlab
 pip install matplotlib
+pip install pandas
 ```
 
 ## Jupyter notebook
@@ -22,7 +23,8 @@ In the remote server:
 
 ```
 tmux
-jupyterlab --no-browser
+source env/bin/activate
+jupyter lab --no-browser
 ```
 
 In a separate shell, forward the SSH port to the local machine:
