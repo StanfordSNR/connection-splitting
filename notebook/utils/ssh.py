@@ -97,7 +97,7 @@ class SSH:
         self.client = None
 
     def reboot(self, timeout=600, sleep=20, initial_wait=120):
-        self.run("sudo reboot")
+        self.run("sudo reboot", raise_err=False)
         self.close()
         t = initial_wait
         print(f"Wait for {initial_wait}s before attempting to connect...")

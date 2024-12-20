@@ -38,7 +38,7 @@ def install_linux(tag, ssh_client, clone=True, linux_dir="~/linux"):
     # Set up dependencies
     print("Install dependencies...")
     ssh_client.run("sudo apt update")
-    ssh_client.run("sudo apt install -f build-essential fakeroot libncurses-dev libssl-dev libelf-dev bison flex bc wget")
+    ssh_client.run("sudo apt install -y build-essential fakeroot libncurses-dev libssl-dev libelf-dev bison flex bc wget")
 
     # Get folder where repository will go
     exit_code, _ = ssh_client.run(f"cd {linux_dir}", raise_err=False)
@@ -84,14 +84,14 @@ def install_linux(tag, ssh_client, clone=True, linux_dir="~/linux"):
     # Ensure correct default version is loaded on reboot
     ssh_client.run("sudo cp /etc/default/grub /etc/default/grub.bak")
     grub_idx = get_grub_idx(tag, client)
-    if not grub_idx:
+    if grub_idx == None:
         raise Exception(f"Failed to find version {tag} in grub")
     print(f"Updating grub idx for {tag} to {grub_idx}")
     cmd = f"sudo sed -i 's@GRUB_DEFAULT=.*@GRUB_DEFAULT={grub_idx}@' /etc/default/grub"
     ssh_client.run(f"sudo update-grub")
 
     # Done building/installing!
-    ssh_client.clear_wdir(linux_dir)
+    ssh_client.clear_wdir()
 
     # Reboot
     print(f"Rebooting {ssh_client.ip}...")
@@ -100,7 +100,6 @@ def install_linux(tag, ssh_client, clone=True, linux_dir="~/linux"):
     # Check version
     print(f"Installation of {tag} complete on {ssh_client.ip}")
     ssh_client.run("uname -r")
-
 
 if __name__ == '__main__':
 
@@ -120,7 +119,7 @@ if __name__ == '__main__':
     client = SSH(args.host, args.user)
     client.connect()
 
-    install_linux(args.version, client, clone=False)
+    install_linux(args.version, client)
 
     print("Installed Linux:")
     client.run("uname -r")
