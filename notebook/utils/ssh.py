@@ -8,7 +8,7 @@ import logging
 # Print output
 
 class SSH:
-    def __init__(self, ip, user="ubuntu", verbose=False):
+    def __init__(self, ip, user, verbose=False):
         self.ip = ip
         self.user = user
         self.client = None
@@ -50,21 +50,19 @@ class SSH:
     def run(self, cmd, raise_err=True, return_stdout=False, retry=0):
         try:
             print(f"EXEC: {cmd}")
-            cmd = f"cd {self.wdir} && {cmd}" if self.wdir else cmd
-            _, stdout, _ = self.client.exec_command(cmd)
+            _, stdout, _ = self.client.exec_command(f"cd {self.wdir} && {cmd}" if self.wdir else cmd)
             stdout.channel.set_combine_stderr(True)
             lines = []
-            while not stdout.channel.exit_status_ready():
-                # Note ChannelFile built on base class BufferedFile
-                l = stdout.readline()
-                if return_stdout:
-                    lines.append(l)
-                else:
-                    print(l, end="")
+            if return_stdout:
+                lines = stdout.readlines()
+            else:
+                while not stdout.channel.exit_status_ready():
+                    # Note ChannelFile built on base class BufferedFile
+                    print(stdout.readline(), end="")
             exit_code = stdout.channel.recv_exit_status()
             if raise_err and exit_code != 0:
                 raise Exception(f"SSH exec on {self.ip}, {cmd} return exit code {exit_code}")
-            return exit_code, "\n".join(lines)
+            return exit_code, lines
 
         except Exception as e:
             if retry:
@@ -74,7 +72,7 @@ class SSH:
                     "is closed", "reset by", "timed out", "broken pipe"
                 ]):
                     self.reconnect()
-                self.run(cmd, raise_err=raise_err, return_stdout=return_stdout, retry=retry - 1)
+                    self.run(cmd, raise_err=raise_err, return_stdout=return_stdout, retry=retry - 1)
             raise Exception(f"SSH exec failed for {self.ip}, {cmd} with error: {e}")
 
     def run_with_prompts(self, cmd, resp="\n"):
