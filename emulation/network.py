@@ -86,7 +86,6 @@ class EmulatedNetwork:
         self.popen(host, f'ethtool -K {iface} gso {gso} tso {tso}')
 
     def set_tcp_congestion_control(self, cca):
-        assert cca in ['cubic', 'bbr']
         for host in self.net.hosts:
             cmd = f'sudo sysctl -w net.ipv4.tcp_congestion_control={cca}'
             self.popen(host, cmd, stderr=False, console_logger=DEBUG)
