@@ -1,8 +1,11 @@
-# BBRv3
+# Building a Linux kernel with BBRv2 and BBRv3
 
-Instructions for downloading, building, and installing
-[Google's TCP BBR v3 release](https://github.com/google/bbr/blob/v3/README.md)
+Instructions for downloading, building, and installing Google's TCP BBR
+releases of [v3](https://github.com/google/bbr/blob/v3/README.md)
+and [v2](https://github.com/google/bbr/tree/v2alpha)
 for Linux on a CloudLab m510 node running Ubuntu 22.04.
+
+## BBRv3
 
 Note the current Linux kernel and distro versions.
 
@@ -40,8 +43,8 @@ $ scripts/config --disable DEBUG_INFO
 $ scripts/config --disable DEBUG_INFO_DWARF5
 ```
 
-Confirm the version. The Git hash should be `7542cc7c41c0` and the Linux
-kernel version on `make menuconfig` should be `6.4.0`. Build:
+Confirm the version. The Linux kernel version on `make menuconfig` should be
+`6.4.0+`:
 ```
 $ make -j$(nproc)  # 15 minutes
 ```
@@ -76,8 +79,6 @@ $ uname -r
 6.4.0+
 ```
 
-## Enable BBR
-
 The source code for `bbr` should be at
 `/lib/modules/6.4.0+/source/net/ipv4/tcp_bbr.c`.
 
@@ -85,4 +86,26 @@ The source code for `bbr` should be at
 $ sudo modprobe tcp_bbr
 $ sysctl net.ipv4.tcp_available_congestion_control
 net.ipv4.tcp_available_congestion_control = reno cubic bbr
+```
+
+## BBRv2
+
+Follow the instructions under `BBRv3` with the following modifications:
+
+* Checkout the `google-bbr/v2alpha` tag instead of `google-bbr/v3`.
+* Run `make menuconfig` and enable the `BBR2 TCP` module via
+  `Networking Support -> Networking options -> TCP: advanced congestion control`
+  by typing "m".
+* You will likely need to edit `/etc/default/grub` such that
+  `GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 5.13.12"`,
+  since `5.3.12` may be behind the currently installed kernel. Then run
+  `sudo update-grub`.
+
+The Linux kernel version should be `5.3.12`. The source code for `bbr` should
+be at `/lib/modules/5.13.12/source/net/ipv4/tcp_bbr2.c`.
+
+```
+$ sudo modprobe tcp_bbr2
+$ sysctl net.ipv4.tcp_available_congestion_control
+net.ipv4.tcp_available_congestion_control = reno cubic bbr2
 ```

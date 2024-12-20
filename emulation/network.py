@@ -36,8 +36,8 @@ class EmulatedNetwork:
         bw_mbps = min(bw1, bw2)
         return rtt_ms * bw_mbps * 1000000. / 1000. / 8.
 
-    def _config_iface(self, iface, delay, loss, bw, bdp, gso=True, tso=True,
-                      jitter=None):
+    def _config_iface(self, iface, delay, loss, bw, bdp, qdisc,
+                      gso=True, tso=True, jitter=None):
         """Configures the given interface <iface>:
         - Loss: <loss>% stochastic packet loss
         - Delay: <delay>ms delay w/ ±<jitter>ms jitter, <delay_corr>% correlation
@@ -63,19 +63,22 @@ class EmulatedNetwork:
         self.popen(host, f'tc class add dev {iface} parent 3: ' \
                          f'classid 10 htb rate {bw}Mbit quantum {quantum}')
 
-        # Add RED for queue management
-        # The harddrop byte limit needs to be a minimum value or RED will be
-        # unable to calculate the EWMA constant so that min >= avpkt
-        limit = max(int(bdp*4), 1000*3*4*4)
-        qmax = int(limit/4)
-        qmin = int(qmax/3)
-        avpkt = 1000
-        # RED: WARNING. Burst (2*min+max)/(3*avpkt) seems to be too large.
-        # RTNETLINK answers: Invalid argument
-        burst = int(1 + qmin / avpkt)
-        self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
-                         f'red limit {limit} avpkt {avpkt} ' \
-                         f'adaptive harddrop bandwidth {bw}Mbit burst {burst}', console_logger=WARN)
+        # Add queue management
+        if qdisc == 'red':
+            # The harddrop byte limit needs to be a minimum value or RED will be
+            # unable to calculate the EWMA constant so that min >= avpkt
+            limit = max(int(bdp*4), 1000*3*4*4)
+            qmax = int(limit/4)
+            qmin = int(qmax/3)
+            avpkt = 1000
+            # RED: WARNING. Burst (2*min+max)/(3*avpkt) seems to be too large.
+            # RTNETLINK answers: Invalid argument
+            burst = int(1 + qmin / avpkt)
+            self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
+                             f'red limit {limit} avpkt {avpkt} ' \
+                             f'adaptive harddrop bandwidth {bw}Mbit burst {burst}', console_logger=WARN)
+        else:
+            raise NotImplementedError(qdisc)
 
         # Turn off tso and gso to send MTU-sized packets
         gso = 'on' if gso else 'off'
@@ -225,7 +228,7 @@ and the router (r1), and the 2nd link is between the router (r1) and the
 server / data sender (h2).
 """
 class OneHopNetwork(EmulatedNetwork):
-    def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2, jitter1, jitter2):
+    def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2, jitter1, jitter2, qdisc):
         super().__init__()
 
         # Add hosts and switches
@@ -262,10 +265,10 @@ class OneHopNetwork(EmulatedNetwork):
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
         bdp = self._calculate_bdp(delay1, delay2, bw1, bw2)
-        self._config_iface('h1-eth0', delay1, loss1, bw1, bdp, jitter=jitter1)
-        self._config_iface('r1-eth0', delay1, loss1, bw1, bdp, jitter=jitter1)
-        self._config_iface('r1-eth1', delay2, loss2, bw2, bdp, jitter=jitter2)
-        self._config_iface('h2-eth0', delay2, loss2, bw2, bdp, jitter=jitter2)
+        self._config_iface('h1-eth0', delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
+        self._config_iface('r1-eth0', delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
+        self._config_iface('r1-eth1', delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
+        self._config_iface('h2-eth0', delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
 
 
 """
@@ -273,7 +276,7 @@ Defines an emulated network in mininet that directly connects the client /
 data receiver (h1) to the server / data sender (h2) with a single link.
 """
 class DirectNetwork(EmulatedNetwork):
-    def __init__(self, delay, loss, bw, jitter):
+    def __init__(self, delay, loss, bw, jitter, qdisc):
         super().__init__()
 
         # Add hosts and switches
@@ -299,5 +302,5 @@ class DirectNetwork(EmulatedNetwork):
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
         bdp = self._calculate_bdp(delay, 0, bw, bw)
-        self._config_iface('h1-eth0', delay, loss, bw, bdp, jitter=jitter)
-        self._config_iface('h2-eth0', delay, loss, bw, bdp, jitter=jitter)
+        self._config_iface('h1-eth0', delay, loss, bw, bdp, qdisc, jitter=jitter)
+        self._config_iface('h2-eth0', delay, loss, bw, bdp, qdisc, jitter=jitter)
