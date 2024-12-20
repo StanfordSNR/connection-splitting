@@ -77,6 +77,10 @@ class EmulatedNetwork:
             self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
                              f'red limit {limit} avpkt {avpkt} ' \
                              f'adaptive harddrop bandwidth {bw}Mbit burst {burst}', console_logger=WARN)
+        elif qdisc == 'fq_codel':
+            self.popen(host, f'tc qdisc add dev {iface} root fq_codel', console_logger=WARN)
+        elif qdsic == 'noqueue':
+            self.popen(host, f'tc qdisc add dev {iface} root noqueue', console_logger=WARN)
         else:
             raise NotImplementedError(qdisc)
 

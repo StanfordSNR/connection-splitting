@@ -120,6 +120,7 @@ if __name__ == '__main__':
         help='jitter on far path segment with a default delay correlation '\
             f'of {DEFAULT_DELAY_CORR}%% and a paretonormal distribution')
     net_config.add_argument('--qdisc', type=str, default='red',
+        choices=['red', 'fq_codel', 'noqueue'],
         help='netem queuing discipline')
 
     ###########################################################################
