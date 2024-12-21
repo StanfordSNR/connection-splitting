@@ -311,7 +311,10 @@ class DirectRawData(RawDataParser, RawDataExecutor):
         RawDataExecutor.__init__(self, exp.timeout)
 
         for i in range(max_retries):
-            missing_data = self._find_missing_data()
+            treatments = self.exp.get_treatments()
+            missing_data = []
+            for treatment in treatments:
+                missing_data += self._find_missing_data(treatment)
             if len(missing_data) == 0 or not execute:
                 break
             self._collect_missing_data(missing_data)
@@ -322,11 +325,10 @@ class DirectRawData(RawDataParser, RawDataExecutor):
         for file, data_size, num_missing in missing_data:
             print('MISSING:', file.cmd(data_size, num_missing, exp.timeout))
 
-    def _find_missing_data(self) -> List[Tuple[RawDataFile, int, int]]:
+    def _find_missing_data(
+        self, treatment: Treatment,
+    ) -> List[Tuple[RawDataFile, int, int]]:
         missing_data = []
-        treatments = self.exp.get_treatments()
-        assert len(treatments) == 1
-        treatment = treatments[0]
         treatment_data = self.data[treatment.label()]
 
         # The length of the connection increases for larger delays, bw,
