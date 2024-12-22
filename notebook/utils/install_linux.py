@@ -2,7 +2,7 @@ from ssh import SSH
 import argparse
 import re
 
-def get_grub_idx(tag, client):
+def get_grub_idx(version, client):
     '''Helper: default kernel to load on boot is the newest.
     When downgrading, or if previously downgraded, need to update
     the default kernel to the desired version using index in the
@@ -12,24 +12,17 @@ def get_grub_idx(tag, client):
                             return_stdout=True)
     submenu = None
     menu = None
-    # tag should be of the form `vX.YY`, `vX.YY-rcZ`, or similar.
-    version = re.findall(r'\d+\.\d+', tag)[0]
-    i = 0
     for l in stdout:
         if 'Ubuntu' not in l and 'linux' not in l:
             continue
         if "submenu" in l:
-            submenu = i
-            i = 0
+            submenu = 'Advanced options for Ubuntu'
             continue
         if version in l and "recovery" not in l and ".old" not in l:
-            menu = i
-            if i == 0:
-                submenu = None # No need for submenu
+            match = re.search(r"menuentry '([^']*?)'", l)
+            menu = match[1]
             break
-        i += 1
-    if menu is None:
-        return None
+    assert menu != None
     return f"{submenu}>{menu}" if submenu else menu
 
 def install_linux(tag, ssh_client, clone=True, linux_dir="~/linux"):
