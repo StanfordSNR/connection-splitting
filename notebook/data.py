@@ -353,6 +353,16 @@ class DirectRawData(RawDataParser, RawDataExecutor):
             assert len(network_data) == 1
             data_size, outputs = next(iter(network_data.items()))
 
+            # Count the number of timeouts in the existing outputs.
+            # If at least half of the expected trials are timeouts, then
+            # skip the remaining trials and adjacent data points.
+            num_timeouts = 0
+            for output in outputs:
+                if 'timeout' in output and output['timeout']:
+                    num_timeouts += 1
+            if num_timeouts >= (self.exp.num_trials + 1) // 2:
+                continue
+
             # If there are any trials remaining, then execute the data point
             # (and don't explore more).
             num_missing = self.exp.num_trials - len(outputs)
@@ -370,15 +380,7 @@ class DirectRawData(RawDataParser, RawDataExecutor):
                 to_visit.append((i, j+1, k))
             if k+1 < len(zs):
                 to_visit.append((i, j, k+1))
-
-            # If half or more of the current data points timed out, then stop
-            # exploring. Otherwise, explore.
-            timeouts = 0
-            for output in outputs:
-                if 'timeout' in output and output['timeout']:
-                    timeouts += 1
-            if timeouts <= int(len(outputs) / 2):
-                queue += to_visit
+            queue += to_visit
 
         return missing_data
 
