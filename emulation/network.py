@@ -78,11 +78,26 @@ class EmulatedNetwork:
             burst = int(1 + qmin / avpkt)
             self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
                              f'red limit {limit} avpkt {avpkt} ' \
-                             f'adaptive harddrop bandwidth {bw}Mbit burst {burst}', console_logger=WARN)
-        elif qdisc == 'fq_codel':
-            self.popen(host, f'tc qdisc add dev {iface} root fq_codel', console_logger=WARN)
-        elif qdsic == 'noqueue':
-            self.popen(host, f'tc qdisc add dev {iface} root noqueue', console_logger=WARN)
+                             f'adaptive harddrop bandwidth {bw}Mbit burst {burst}', console_logger=DEBUG)
+        elif qdisc == 'bfifo-large':
+            # BDP
+            self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
+                             f'bfifo limit {bdp}', console_logger=DEBUG)
+        elif qdisc == 'bfifo-small':
+            # 0.1*BDP
+            limit = max(1500, int(0.1 * bdp))
+            self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
+                             f'bfifo limit {limit}', console_logger=DEBUG)
+        elif qdisc == 'pie':
+            # Memory limit, since packets are dropped based on target delay
+            limit = int(4 * bdp / 1500)
+            self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
+                             f'pie limit {limit}', console_logger=DEBUG)
+        elif qdisc == 'codel':
+            # Memory limit, since packets are dropped based on target delay
+            limit = int(4 * bdp / 1500)
+            self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
+                             f'codel limit {limit} interval {rtt}ms', console_logger=DEBUG)
         else:
             raise NotImplementedError(qdisc)
 
