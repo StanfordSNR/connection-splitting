@@ -36,7 +36,7 @@ class EmulatedNetwork:
         bw_mbps = min(bw1, bw2)
         return rtt_ms * bw_mbps * 1000000. / 1000. / 8.
 
-    def _config_iface(self, iface, delay, loss, bw, bdp, qdisc,
+    def _config_iface(self, iface, delay, loss, bw, rtt, bdp, qdisc,
                       gso=True, tso=True, jitter=None):
         """Configures the given interface <iface>:
         - Loss: <loss>% stochastic packet loss
@@ -64,7 +64,9 @@ class EmulatedNetwork:
                          f'classid 10 htb rate {bw}Mbit quantum {quantum}')
 
         # Add queue management
-        if qdisc == 'red':
+        if qdisc is None:
+            pass
+        elif qdisc == 'red':
             # The harddrop byte limit needs to be a minimum value or RED will be
             # unable to calculate the EWMA constant so that min >= avpkt
             limit = max(int(bdp*4), 1000*3*4*4)
@@ -267,11 +269,12 @@ class OneHopNetwork(EmulatedNetwork):
 
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
+        rtt = 2 * (delay1 + delay2)
         bdp = self._calculate_bdp(delay1, delay2, bw1, bw2)
-        self._config_iface('h1-eth0', delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
-        self._config_iface('r1-eth0', delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
-        self._config_iface('r1-eth1', delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
-        self._config_iface('h2-eth0', delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
+        self._config_iface('h1-eth0', delay1, loss1, bw1, rtt, bdp, qdisc=None, jitter=jitter1)
+        self._config_iface('r1-eth0', delay1, loss1, bw1, rtt, bdp, qdisc, jitter=jitter1)
+        self._config_iface('r1-eth1', delay2, loss2, bw2, rtt, bdp, qdisc, jitter=jitter2)
+        self._config_iface('h2-eth0', delay2, loss2, bw2, rtt, bdp, qdisc=None, jitter=jitter2)
 
 
 """
@@ -305,5 +308,6 @@ class DirectNetwork(EmulatedNetwork):
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
         bdp = self._calculate_bdp(delay, 0, bw, bw)
-        self._config_iface('h1-eth0', delay, loss, bw, bdp, qdisc, jitter=jitter)
-        self._config_iface('h2-eth0', delay, loss, bw, bdp, qdisc, jitter=jitter)
+        rtt = 2 * delay
+        self._config_iface('h1-eth0', delay, loss, bw, rtt, bdp, qdisc, jitter=jitter)
+        self._config_iface('h2-eth0', delay, loss, bw, rtt, bdp, qdisc, jitter=jitter)
