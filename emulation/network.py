@@ -57,12 +57,12 @@ class EmulatedNetwork:
         # Take the min because sch_htb complains about the quantum being too big
         # past 200,000 bytes. Otherwise calculate using the default r2q.
         # If using a policer at the proxy, make the bandwidth of the links
-        # higher by 10%.
+        # twice as high as the policed rate.
         r2q = 10
         quantum = min(int(bw*1000000/8 / r2q), 200000)
         self.popen(host, f'tc qdisc add dev {iface} parent 2: handle 3: ' \
                          f'htb default 10')
-        htb_rate = int(1.1*bw) if qdisc == 'policer' else bw
+        htb_rate = int(2*bw) if qdisc == 'policer' else bw
         self.popen(host, f'tc class add dev {iface} parent 3: ' \
                          f'classid 10 htb rate {htb_rate}Mbit quantum {quantum}')
 
