@@ -56,50 +56,56 @@ class EmulatedNetwork:
         # Add HTB for bandwidth
         # Take the min because sch_htb complains about the quantum being too big
         # past 200,000 bytes. Otherwise calculate using the default r2q.
+        # If using a policer at the proxy, make the bandwidth of the links
+        # higher by 10%.
         r2q = 10
         quantum = min(int(bw*1000000/8 / r2q), 200000)
         self.popen(host, f'tc qdisc add dev {iface} parent 2: handle 3: ' \
                          f'htb default 10')
+        htb_rate = int(1.1*bw) if qdisc == 'policer' else bw
         self.popen(host, f'tc class add dev {iface} parent 3: ' \
-                         f'classid 10 htb rate {bw}Mbit quantum {quantum}')
+                         f'classid 10 htb rate {htb_rate}Mbit quantum {quantum}')
 
         # Add queue management
-        if qdisc is None:
-            pass
-        elif qdisc == 'red':
-            # The harddrop byte limit needs to be a minimum value or RED will be
-            # unable to calculate the EWMA constant so that min >= avpkt
-            limit = max(int(bdp*4), 1000*3*4*4)
-            qmax = int(limit/4)
-            qmin = int(qmax/3)
-            avpkt = 1000
-            # RED: WARNING. Burst (2*min+max)/(3*avpkt) seems to be too large.
-            # RTNETLINK answers: Invalid argument
-            burst = int(1 + qmin / avpkt)
-            self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
-                             f'red limit {limit} avpkt {avpkt} ' \
-                             f'adaptive harddrop bandwidth {bw}Mbit burst {burst}', console_logger=DEBUG)
-        elif qdisc == 'bfifo-large':
-            # BDP
-            self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
-                             f'bfifo limit {bdp}', console_logger=DEBUG)
-        elif qdisc == 'bfifo-small':
-            # 0.1*BDP
-            limit = max(1500, int(0.1 * bdp))
-            self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
-                             f'bfifo limit {limit}', console_logger=DEBUG)
-        elif qdisc == 'pie':
-            # Memory limit, since packets are dropped based on target delay
-            limit = int(4 * bdp / 1500)
-            self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
-                             f'pie limit {limit}', console_logger=DEBUG)
-        elif qdisc == 'codel':
-            # Memory limit, since packets are dropped based on target delay
-            limit = int(4 * bdp / 1500)
-            self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
-                             f'codel limit {limit} interval {rtt}ms', console_logger=DEBUG)
-        else:
-            raise NotImplementedError(qdisc)
+        if qdisc == 'policer':
+            # Burst time of 10ms
+            burst = int(bw * 10 * 1000 / 8)
+            queue_cmd = f'tc filter add dev {iface} parent 3: '\
+                        f'protocol ip u32 match ip src 0.0.0.0/0 '\
+                        f'action police rate {bw}mbit burst {burst} '\
+                        f'conform-exceed drop'
+            self.popen(host, queue_cmd, console_logger=DEBUG)
+        elif qdisc is not None:
+            queue_cmd = f'tc qdisc add dev {iface} parent 3:10 handle 11: '
+            if qdisc == 'red':
+                # The harddrop byte limit needs to be a min value or RED will
+                # be unable to calculate the EWMA constant so that min >= avpkt
+                limit = max(int(bdp*4), 1000*3*4*4)
+                qmax = int(limit/4)
+                qmin = int(qmax/3)
+                avpkt = 1000
+                # RED: WARNING. Burst (2*min+max)/(3*avpkt) seems to be too large.
+                # RTNETLINK answers: Invalid argument
+                burst = int(1 + qmin / avpkt)
+                queue_cmd += f'red limit {limit} avpkt {avpkt} ' \
+                             f'adaptive harddrop ' \
+                             f'bandwidth {bw}Mbit burst {burst}'
+            elif qdisc == 'bfifo-large':
+                queue_cmd += f'bfifo limit {bdp}' # BDP
+            elif qdisc == 'bfifo-small':
+                limit = max(1500, int(0.1 * bdp)) # min(mtu, 0.1*BDP)
+                queue_cmd += f'bfifo limit {limit}'
+            elif qdisc == 'pie':
+                # Memory limit, since packets are dropped based on target delay
+                limit = int(4 * bdp / 1500)
+                queue_cmd +=      f'pie limit {limit}'
+            elif qdisc == 'codel':
+                # Memory limit, since packets are dropped based on target delay
+                limit = int(4 * bdp / 1500)
+                queue_cmd += f'codel limit {limit} interval {rtt}ms'
+            else:
+                raise NotImplementedError(qdisc)
+            self.popen(host, queue_cmd, console_logger=DEBUG)
 
         # Turn off tso and gso to send MTU-sized packets
         gso = 'on' if gso else 'off'
