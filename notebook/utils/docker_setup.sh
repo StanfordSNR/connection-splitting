@@ -23,7 +23,7 @@ mkdir -p ~/output
 mkdir -p docker
 echo "FROM $UBUNTU" > docker/Dockerfile
 echo "RUN apt-get update && apt-get install -y sudo" >> docker/Dockerfile
-echo "RUN sudo apt-get install -y build-essential fakeroot libncurses-dev libssl-dev libelf-dev bison flex bc wget" >> docker/Dockerfile
+echo "RUN sudo apt-get install -y zstd build-essential fakeroot libncurses-dev libssl-dev libelf-dev bison flex bc wget kmod" >> docker/Dockerfile
 sudo docker build --tag "kernel-builder" docker
 echo "Built docker container from Dockerfile:"
 cat docker/Dockerfile

@@ -34,33 +34,34 @@ def install_linux(tag, ssh_client, docker_base, build_dir, use_docker, reboot):
     os.system(f"find . -name \"kernel_setup.sh\" -exec scp {{}} {ssh_client.user}@{ssh_client.ip}:{build_dir} \\;")
     ssh_client.run(f"sudo chmod +x {build_dir}/kernel_setup.sh")
     ssh_client.set_wdir(f"{build_dir}")
-    ssh_client.run(f"sh kernel_setup.sh -t \"{tag}\" -d \"{build_dir}\"")
+    ssh_client.run(f"sh kernel_setup.sh -t {tag} -d {build_dir}")
     if use_docker:
         os.system(f"find . -name \"docker_setup.sh\" -exec scp {{}} {ssh_client.user}@{ssh_client.ip}:{build_dir} \\;")
+        ssh_client.run(f"chmod +x docker_setup.sh")
         ssh_client.run(f"sh docker_setup.sh -u \"{docker_base}\" -d \"{build_dir}\"")
 
     # Copy and run build script (in container) on remote host
     if use_docker:
         os.system(f"find . -name \"kernel_build.sh\" -exec scp {{}} {ssh_client.user}@{ssh_client.ip}:{build_dir} \\;")
         ssh_client.run(f"chmod +x {build_dir}/kernel_build.sh")
-        ssh_client.run(f"sudo docker run --rm --volume {build_dir}:/work -w /work -e HOME=/work -v {build_dir}/output:/output kernel-builder bash kernel_build.sh")
+        ssh_client.run(f"sudo docker run --volume {build_dir}:/work -w /work -e HOME=/work -v {build_dir}/output:/output kernel-builder bash kernel_build.sh")
     else:
         ssh_client.set_wdir(f"{build_dir}")
-        ssh_client.run(f"mkdir output")
+        ssh_client.run(f"mkdir -p output")
         ssh_client.set_wdir(f"{build_dir}/linux")
         ssh_client.run(f"sudo make -j$(nproc)")
         ssh_client.run(f"sudo make modules_install INSTALL_MOD_PATH=../output")
         ssh_client.run(f"sudo make install INSTALL_PATH=../output")
 
     print(f"Copying built files...")
-    ssh_client.set_wdir(f"build_dir")
+    ssh_client.set_wdir(f"{build_dir}")
     exit_code, _ = ssh_client.run(f"sudo cp -r {build_dir}/output/lib/{version}* /lib/modules/", raise_err = False)
     if exit_code != 0:
         ssh_client.run(f"sudo cp -r {build_dir}/output/lib/modules/{version}* /lib/modules/")
-    ssh_client.run(f"sudo cp -r {build_dir}/output/config* /boot")
-    ssh_client.run(f"sudo cp -r {build_dir}/output/initrd* /boot", raise_err = False)
-    ssh_client.run(f"sudo cp -r {build_dir}/output/System.map* /boot")
-    ssh_client.run(f"sudo cp -r {build_dir}/output/vmlinuz* /boot")
+    ssh_client.run(f"sudo cp {build_dir}/output/config* /boot")
+    ssh_client.run(f"sudo cp {build_dir}/output/initrd* /boot", raise_err = False)
+    ssh_client.run(f"sudo cp {build_dir}/output/System.map* /boot")
+    ssh_client.run(f"sudo cp {build_dir}/output/vmlinuz* /boot")
 
     # Using index and name (e.g., "Linux, with Ubuntu XX") did not work for all versions;
     # need the string(s) "gnulinux-{version}-advanced-{id}"

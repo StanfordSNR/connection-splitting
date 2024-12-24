@@ -28,8 +28,11 @@ cd $DIR/linux
 openssl rand -writerand ~/.rnd
 yes "" | openssl req -x509 -newkey rsa:4096 -keyout certs/mycert.pem -out certs/mycert.pem -nodes -days 3650
 cd $DIR/linux
-cp /boot/config-$(uname -r) .config
+sudo cp /boot/config-$(uname -r) .config
 yes "" | make oldconfig
 sed -i 's@CONFIG_MODULE_SIG_KEY="certs/signing_key.pem"@CONFIG_MODULE_SIG_KEY="certs/mycert.pem"@' .config
 sed -i 's@^CONFIG_SYSTEM_TRUSTED_KEYS=.*$@CONFIG_SYSTEM_TRUSTED_KEYS=""@' .config
 sed -i 's@^CONFIG_SYSTEM_REVOCATION_KEYS=.*$@CONFIG_SYSTEM_REVOCATION_KEYS=""@' .config
+
+./scripts/config --disable DEBUG_INFO
+./scripts/config --disable DEBUG_INFO_DWARF5

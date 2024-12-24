@@ -22,3 +22,11 @@ If the starting OS and target kernel are incompatible, the host will fail to boo
 ```sh
 not syncing: VFS: Unable to mount root fs on unknown-block(0,0)
 ```
+
+### Troubleshooting
+
+This often requires manual intervention, so it is recommended not to automatically issue a reboot before checking configurations.
+
+- Look for warnings in the build output
+- Check for the module files in /lib/modules/
+- Check in /boot for config-{version}, System.map-{version}, initrd.img-{version}, and vmlinuz-{version}
