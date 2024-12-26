@@ -36,7 +36,7 @@ class EmulatedNetwork:
         bw_mbps = min(bw1, bw2)
         return rtt_ms * bw_mbps * 1000000. / 1000. / 8.
 
-    def _config_iface(self, iface, delay, loss, bw, rtt, bdp, qdisc,
+    def _config_iface(self, iface, delay, loss, bw, rtt, bdp, qdisc=None,
                       gso=True, tso=True, jitter=None):
         """Configures the given interface <iface>:
         - Loss: <loss>% stochastic packet loss
@@ -103,6 +103,8 @@ class EmulatedNetwork:
                 # Memory limit, since packets are dropped based on target delay
                 limit = int(4 * bdp / 1500)
                 queue_cmd += f'codel limit {limit} interval {rtt}ms'
+            elif qdisc == 'fq_codel':
+                queue_cmd += f'fq_codel'
             else:
                 raise NotImplementedError(qdisc)
             self.popen(host, queue_cmd, console_logger=DEBUG)
@@ -292,10 +294,10 @@ class OneHopNetwork(EmulatedNetwork):
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
         rtt = 2 * (delay1 + delay2)
         bdp = self._calculate_bdp(delay1, delay2, bw1, bw2)
-        self._config_iface('h1-eth0', delay1, loss1, bw1, rtt, bdp, qdisc=None, jitter=jitter1)
-        self._config_iface('r1-eth0', delay1, loss1, bw1, rtt, bdp, qdisc, jitter=jitter1)
-        self._config_iface('r1-eth1', delay2, loss2, bw2, rtt, bdp, qdisc, jitter=jitter2)
-        self._config_iface('h2-eth0', delay2, loss2, bw2, rtt, bdp, qdisc=None, jitter=jitter2)
+        self._config_iface('h1-eth0', delay1, loss1, bw1, rtt, bdp, qdisc, jitter=jitter1)
+        self._config_iface('r1-eth0', delay1, loss1, bw1, rtt, bdp, jitter=jitter1)
+        self._config_iface('r1-eth1', delay2, loss2, bw2, rtt, bdp, jitter=jitter2)
+        self._config_iface('h2-eth0', delay2, loss2, bw2, rtt, bdp, qdisc, jitter=jitter2)
 
 
 """
