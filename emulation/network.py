@@ -48,7 +48,9 @@ class EmulatedNetwork:
 
         # Add netem with delay variability
         cmd = f'tc qdisc add dev {iface} root handle 2: '\
-              f'netem loss {loss}% delay {delay}ms '
+              f'netem delay {delay}ms '
+        if loss is not None and int(loss) > 0:
+            cmd += f'loss {loss}% '
         if jitter is not None:
             cmd += f'{jitter}ms {DEFAULT_DELAY_CORR}% distribution paretonormal'
         self.popen(host, cmd)
@@ -79,7 +81,7 @@ class EmulatedNetwork:
                              f'adaptive harddrop bandwidth {bw}Mbit burst {burst}', console_logger=WARN)
         elif qdisc == 'fq_codel':
             self.popen(host, f'tc qdisc add dev {iface} root fq_codel', console_logger=WARN)
-        elif qdsic == 'noqueue':
+        elif qdisc == 'noqueue':
             self.popen(host, f'tc qdisc add dev {iface} root noqueue', console_logger=WARN)
         else:
             raise NotImplementedError(qdisc)
