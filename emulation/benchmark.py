@@ -220,7 +220,7 @@ class TCPBenchmark(BaseBenchmark):
         self.server_ip = self.net.h2.IP()
 
     def start_server(self, logfile):
-        cmd = f'python webserver/http_server.py --server-ip {self.server_ip} '\
+        cmd = f'python3 webserver/http_server.py --server-ip {self.server_ip} '\
               f'--certfile {self.certfile} --keyfile {self.keyfile} '\
               f'-n {self.n}'
 
@@ -243,7 +243,7 @@ class TCPBenchmark(BaseBenchmark):
     def run_client(self, logfile, timeout) -> Optional[Tuple[int, float]]:
         """Returns the status code and runtime (seconds) of the GET request.
         """
-        cmd = f'python webserver/http_client.py --server-ip {self.server_ip} '\
+        cmd = f'python3 webserver/http_client.py --server-ip {self.server_ip} '\
               f'-n {self.n}'
 
         result = []
