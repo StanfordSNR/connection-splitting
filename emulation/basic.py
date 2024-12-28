@@ -4,6 +4,30 @@ from time import sleep
 import subprocess
 import json
 
+def start_tcp_pep(network):
+    network.popen(network.r1, 'ip rule add fwmark 1 lookup 100')
+    network.popen(network.r1, 'ip route add local 0.0.0.0/0 dev lo table 100')
+    network.popen(network.r1, 'iptables -t mangle -F')
+    network.popen(network.r1, 'iptables -t mangle -A PREROUTING -i r1-eth1 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
+    network.popen(network.r1, 'iptables -t mangle -A PREROUTING -i r1-eth0 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
+
+    condition = threading.Condition()
+    def notify_when_ready(line):
+        if 'Pepsal started' in line:
+            with condition:
+                condition.notify()
+
+    # The start_tcp_pep() function blocks until the TCP PEP is ready to
+    # split connections. That is, when we observe the 'Pepsal started'
+    # string in the router output.
+    network.popen(network.r1, 'pepsal -v', background=True,
+        console_logger=DEBUG, logfile="log.log", func=notify_when_ready)
+    with condition:
+        notified = condition.wait(timeout=SETUP_TIMEOUT)
+        if not notified:
+            raise TimeoutError(f'start_tcp_pep timeout {SETUP_TIMEOUT}s')
+        print("Set up TCP PEP")
+
 def runiperf3Test(network, pep, nbytes):
 
     print(f"Starting iperf3 server on h2 {network.h2.IP()}...")
@@ -20,7 +44,6 @@ def runiperf3Test(network, pep, nbytes):
         print(stderr.decode())
     print("Stopping iperf3 server on h2...")
     server.terminate()
-    network.stop()
     with open('tmp.json', 'w') as f:
         f.write(stdout.decode())
 
@@ -43,8 +66,9 @@ def set_cca(cca, network):
     print("Setting CCA on Mininet nodes")
     network.h1.cmd(cmd)
     network.h2.cmd(cmd)
+    network.r1.cmd(cmd)
     cmd = 'sysctl net.ipv4.tcp_congestion_control'
-    print(f"Set CCA: {network.h1.cmd(cmd).strip()}, {network.h2.cmd(cmd).strip()}")
+    print(f"Set CCA: {network.h1.cmd(cmd).strip()}, {network.h2.cmd(cmd).strip()}, {network.r1.cmd(cmd).strip()}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -81,16 +105,25 @@ if __name__ == '__main__':
                         help='Number of bytes to transfer in the iperf3 test (see \"iperf3 -n\")')
     parser.add_argument('-o', '--outfile', type=str, default=f'iperf3_{get_linux_version()}.json',
                         help='Output file for iperf3 results')
+    parser.add_argument('-t', '--trials', type=int, default=1,
+                        help='Number of trials to run')
     args = parser.parse_args()
     network = OneHopNetwork(args.delay1, args.delay2, args.loss1, args.loss2,
                             args.bw1, args.bw2, args.jitter1, args.jitter2, args.qdisc)
     network.net.start()
     set_cca(args.cca, network)
-    runiperf3Test(network, args.pep, args.n)
+    if args.pep:
+        start_tcp_pep(network)
 
+    results = []
+    for t in range(args.trials):
+        runiperf3Test(network, args.pep, args.n)
+        result = json.load(open('tmp.json', 'r'))
+        os.system('sudo rm tmp.json')
+        results.append(result)
+
+    network.stop()
     print(f"Writing ouput to {args.outfile}...")
-    result = json.load(open('tmp.json', 'r'))
-    os.system('sudo rm tmp.json')
-    result = { 'parameters': vars(args), 'iperf3_result': result }
+    result = { 'parameters': vars(args), 'iperf3_result': { 'trials' : results } }
     with open(args.outfile, 'w') as f:
         json.dump(result, f, indent=4)
