@@ -56,7 +56,7 @@ Skip this section if not running QUIC benchmarks. It takes around an hour.
 
 ### Build and install Chromium QUIC
 
-Fetch the Chromium source and sync files in the diff.
+Fetch the Chromium source. (10 min)
 
 ```
 export SIDEKICK_HOME=$HOME/sidekick-downloads
@@ -66,22 +66,31 @@ export PATH="$SIDEKICK_HOME/deps/depot_tools:$PATH"
 update_depot_tools
 mkdir chromium
 cd chromium
-fetch --nohooks --no-history chromium  # 10 minutes
-rsync -av $SIDEKICK_HOME/deps/chromium_diff $SIDEKICK_HOME/deps/chromium
+fetch --nohooks --no-history chromium
 ```
 
-Install Chromium dependencies.
+Checkout a specific tag and sync local diffs. (10 min)
 ```
 cd $SIDEKICK_HOME/deps/chromium/src
-./build/install-build-deps.sh  # 5 minutes
+git fetch https://chromium.googlesource.com/chromium/src.git +refs/tags/131.0.6728.1:chromium_131.0.6728.1 --depth 1
+git checkout tags/131.0.6728.1
+gclient sync -D
+gclient sync --with_branch_heads
 gclient runhooks
+rsync -av $SIDEKICK_HOME/deps/chromium_diff/ $SIDEKICK_HOME/deps/chromium/
 ```
 
-Build Chromium.
+Install Chromium dependencies. (10 min)
+```
+cd $SIDEKICK_HOME/deps/chromium/src
+./build/install-build-deps.sh
+```
+
+Build Chromium. (10 min)
 ```
 cd $SIDEKICK_HOME/deps/chromium/src
 gn gen out/Default
-ninja -C out/Default quic_server quic_client  # 10 minutes
+ninja -C out/Default quic_server quic_client
 ```
 
 ### Generate certificates
