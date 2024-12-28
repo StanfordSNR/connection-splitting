@@ -64,9 +64,8 @@ def set_cca(cca, network):
         return
 
     print("Setting CCA on Mininet nodes")
-    network.h1.cmd(cmd)
-    network.h2.cmd(cmd)
-    network.r1.cmd(cmd)
+    for host in network.net.hosts:
+        host.cmd(cmd)
     cmd = 'sysctl net.ipv4.tcp_congestion_control'
     print(f"Set CCA: {network.h1.cmd(cmd).strip()}, {network.h2.cmd(cmd).strip()}, {network.r1.cmd(cmd).strip()}")
 
@@ -103,8 +102,6 @@ if __name__ == '__main__':
                         help='Enable PEP')
     parser.add_argument('-n', type=str, default='62500000',
                         help='Number of bytes to transfer in the iperf3 test (see \"iperf3 -n\")')
-    parser.add_argument('-o', '--outfile', type=str, default=f'iperf3_{get_linux_version()}.json',
-                        help='Output file for iperf3 results')
     parser.add_argument('-t', '--trials', type=int, default=1,
                         help='Number of trials to run')
     args = parser.parse_args()
@@ -115,6 +112,8 @@ if __name__ == '__main__':
     if args.pep:
         start_tcp_pep(network)
 
+    outfile = f'iperf3_{get_linux_version()}_{"pep_" if args.pep else ""}{args.cca}.json'
+
     results = []
     for t in range(args.trials):
         runiperf3Test(network, args.pep, args.n)
@@ -123,7 +122,7 @@ if __name__ == '__main__':
         results.append(result)
 
     network.stop()
-    print(f"Writing ouput to {args.outfile}...")
+    print(f"Writing ouput to {outfile}...")
     result = { 'parameters': vars(args), 'iperf3_result': { 'trials' : results } }
-    with open(args.outfile, 'w') as f:
+    with open(outfile, 'w') as f:
         json.dump(result, f, indent=4)
