@@ -9,7 +9,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include <fstream>
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
@@ -65,28 +64,7 @@ DEFINE_QUICHE_COMMAND_LINE_FLAG(
     "server binary. If not specified, one will be randomly generated as "
     "\"QuicToyServerN\" where N is a random uint64_t.");
 
-DEFINE_QUICHE_COMMAND_LINE_FLAG(
-    int, num_cached_bytes, 0,
-    "Number of random bytes to initialize in the cache, e.g., 1000000 = 1 MB");
-
 namespace quic {
-
-std::string GenerateRandomBytes(size_t n) {
-  std::ifstream urandom("/dev/urandom", std::ios::in | std::ios::binary);
-  if (!urandom) {
-    std::cerr << "Failed to open /dev/urandom" << std::endl;
-    return "";
-  }
-
-  std::string buffer(n, '\0');
-  urandom.read(&buffer[0], n);
-  if (!urandom) {
-    std::cerr << "Failed to read random bytes from /dev/urandom" << std::endl;
-    return "";
-  }
-
-  return buffer;
-}
 
 std::unique_ptr<quic::QuicSimpleServerBackend>
 QuicToyServer::MemoryCacheBackendFactory::CreateBackend() {
@@ -101,17 +79,6 @@ QuicToyServer::MemoryCacheBackendFactory::CreateBackend() {
   }
   if (quiche::GetQuicheCommandLineFlag(FLAGS_enable_webtransport)) {
     memory_cache_backend->EnableWebTransport();
-  }
-  if (quiche::GetQuicheCommandLineFlag(FLAGS_num_cached_bytes) > 0) {
-    auto n = quiche::GetQuicheCommandLineFlag(FLAGS_num_cached_bytes);
-    auto buffer = GenerateRandomBytes(n);
-    if (!buffer.empty()) {
-      // Add a response at <host>/<n>
-      constexpr char host[] = "www.example.org";
-      auto path = "/" + std::to_string(n);
-      auto code = 200;
-      memory_cache_backend->AddSimpleResponse(host, path, code, buffer);
-    }
   }
 
   if (!quiche::GetQuicheCommandLineFlag(FLAGS_connect_proxy_destinations)
@@ -185,7 +152,6 @@ int QuicToyServer::Start() {
     return 1;
   }
 
-  std::cerr << "Serving on port " << FLAGS_port << std::endl;
   server->HandleEventsForever();
   return 0;
 }

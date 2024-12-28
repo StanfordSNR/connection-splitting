@@ -312,9 +312,13 @@ int QuicToyClient::SendRequestsAndPrintResponses(
         ParseQuicTagVector(client_connection_options_string));
   }
   if (quiche::GetQuicheCommandLineFlag(FLAGS_multi_packet_chlo)) {
-    // Make the ClientHello span multiple packets by adding a large 'discard'
-    // transport parameter.
-    config.SetDiscardLengthToSend(2000);
+    // Make the ClientHello span multiple packets by adding a custom transport
+    // parameter.
+    constexpr auto kCustomParameter =
+        static_cast<TransportParameters::TransportParameterId>(0x173E);
+    std::string custom_value(2000, '?');
+    config.custom_transport_parameters_to_send()[kCustomParameter] =
+        custom_value;
   }
   config.set_max_time_before_crypto_handshake(
       QuicTime::Delta::FromMilliseconds(quiche::GetQuicheCommandLineFlag(
@@ -457,15 +461,8 @@ int QuicToyClient::SendRequestsAndPrintResponses(
   client->set_store_response(true);
 
   for (int i = 0; i < num_requests; ++i) {
-    // Start the timer.
-    auto start = std::chrono::high_resolution_clock::now();
-
     // Send the request.
     client->SendRequestAndWaitForResponse(header_block, body, /*fin=*/true);
-
-    // End the timer.
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> time_s = end - start;
 
     // Print request and response details.
     if (!quiche::GetQuicheCommandLineFlag(FLAGS_quiet)) {
@@ -494,7 +491,7 @@ int QuicToyClient::SendRequestsAndPrintResponses(
         std::cout << "body:\n"
                   << QuicheTextUtils::HexDump(response_body) << std::endl;
       } else {
-        std::cout << "body: " << response_body.size() << " bytes" << std::endl;
+        std::cout << "body: " << response_body << std::endl;
       }
       std::cout << "trailers: " << client->latest_response_trailers()
                 << std::endl;
@@ -534,10 +531,6 @@ int QuicToyClient::SendRequestsAndPrintResponses(
         return 1;
       }
     }
-
-    // Log the result for the mininet benchmarks.
-    std::cerr << "[QUIC_CLIENT] status_code=" << response_code
-              << " time_s=" << time_s << std::endl;
 
     if (i + 1 < num_requests) {  // There are more requests to perform.
       if (quiche::GetQuicheCommandLineFlag(FLAGS_one_connection_per_request)) {
