@@ -56,7 +56,7 @@ def set_cca(cca, network):
     print(f"Running on Linux: {version}")
     cmd = f'sudo sysctl -w net.ipv4.tcp_congestion_control={cca}'
 
-    if "4.9" in version:
+    if float(version.replace(".0", "")) < 4.15:
         print("Setting CCA on host")
         proc = subprocess.run(['sudo', 'sysctl', '-w', f'net.ipv4.tcp_congestion_control={cca}'],
                               capture_output=True, text=True, check=True)
