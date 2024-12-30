@@ -11,7 +11,7 @@ while getopts "u:t:d:" opt; do
   esac
 done
 
-sudo apt install -y build-essential fakeroot libelf-dev bison flex bc wget libssl-dev libncurses-dev
+sudo apt install -y build-essential fakeroot libelf-dev bison flex bc wget libssl-dev libncurses-dev initramfs-tools
 
 echo "Cloning Linux..."
 cd $DIR
@@ -25,6 +25,7 @@ fi
 
 echo "Setting up configs (certificates)..."
 cd $DIR/linux
+make mrproper && make distclean && make clean
 openssl rand -writerand ~/.rnd
 yes "" | openssl req -x509 -newkey rsa:4096 -keyout certs/mycert.pem -out certs/mycert.pem -nodes -days 3650
 cd $DIR/linux

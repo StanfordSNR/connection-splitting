@@ -59,7 +59,10 @@ def install_linux(tag, ssh_client, docker_base, build_dir, use_docker, reboot):
     if exit_code != 0:
         ssh_client.run(f"sudo cp -r {build_dir}/output/lib/modules/{version}* /lib/modules/")
     ssh_client.run(f"sudo cp {build_dir}/output/config* /boot")
-    ssh_client.run(f"sudo cp {build_dir}/output/initrd* /boot", raise_err = False)
+    exit_code, _ = ssh_client.run(f"sudo cp {build_dir}/output/initrd* /boot", raise_err = False)
+    if exit_code != 0:
+        print("No initrd; generating...")
+        ssh_client.run(f"sudo update-initramfs -c -k {version}.0")
     ssh_client.run(f"sudo cp {build_dir}/output/System.map* /boot")
     ssh_client.run(f"sudo cp {build_dir}/output/vmlinuz* /boot")
 
@@ -71,7 +74,7 @@ def install_linux(tag, ssh_client, docker_base, build_dir, use_docker, reboot):
     if grub_str == None:
         raise Exception(f"Failed to find version {tag} in grub")
     print(f"Setting grub default to {grub_str}")
-    ssh_client.run(f"sudo sed -i 's@GRUB_DEFAULT=.*@GRUB_DEFAULT={grub_str}@' /etc/default/grub")
+    ssh_client.run(f"sudo sed -i 's@GRUB_DEFAULT=.*@GRUB_DEFAULT=\"{grub_str}\"@' /etc/default/grub")
     ssh_client.run(f"sudo update-grub")
 
     # Complete install
