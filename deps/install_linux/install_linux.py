@@ -3,33 +3,15 @@ import argparse
 import re
 import os
 
-def get_grub_default(version, ssh_client):
-    _, stdout = ssh_client.run("sudo grep menuentry /boot/grub/grub.cfg",
-                            return_stdout=True)
-    submenu = None
-    menu = None
-    for l in stdout:
-        if 'Ubuntu' not in l and 'linux' not in l:
-            continue
-        if "submenu" in l:
-            submenu = re.search(f"gnulinux-[^']*", l)[0]
-            continue
-        if version in l and 'recovery' not in l and 'old' not in l:
-            menu = re.search(f"gnulinux-[^']*", l)[0]
-            break
-    return f"{submenu}>{menu}" if submenu != None else menu
-
-def install_linux(tag, ssh_client, docker_base, build_dir, use_docker, reboot):
+def build_linux(tag, ssh_client, docker_base, build_dir, use_docker):
 
     # tag should be of the form `vX.YY`, `vX.YY-rcZ`, or similar.
     version = re.findall(r'\d+\.\d+', tag)[0]
-    print(f"Will install Linux kernel {version} on host {ssh_client.ip} with docker image {docker_base}")
-
-    ssh_client.run("sudo apt update")
+    print(f"Will build Linux kernel {version} on host {ssh_client.ip} with docker image {docker_base}")
 
     # Copy and run setup script on remote host
     print(f"Copying and running setup script...")
-    ssh_client.run("sudo apt update")
+    # ssh_client.run("sudo apt update")
     ssh_client.run(f"mkdir -p {build_dir}")
     os.system(f"find . -name \"kernel_setup.sh\" -exec scp {{}} {ssh_client.user}@{ssh_client.ip}:{build_dir} \\;")
     ssh_client.run(f"sudo chmod +x {build_dir}/kernel_setup.sh")
@@ -65,9 +47,38 @@ def install_linux(tag, ssh_client, docker_base, build_dir, use_docker, reboot):
         ssh_client.run(f"sudo update-initramfs -c -k {version}.0")
     ssh_client.run(f"sudo cp {build_dir}/output/System.map* /boot")
     ssh_client.run(f"sudo cp {build_dir}/output/vmlinuz* /boot")
+    ssh_client.clear_wdir()
 
-    # Using index and name (e.g., "Linux, with Ubuntu XX") did not work for all versions;
-    # need the string(s) "gnulinux-{version}-advanced-{id}"
+def get_grub_default(version, ssh_client):
+    _, stdout = ssh_client.run("sudo grep menuentry /boot/grub/grub.cfg",
+                            return_stdout=True)
+    submenu = None
+    menu = None
+    for l in stdout:
+        if 'Ubuntu' not in l and 'linux' not in l:
+            continue
+        if "submenu" in l:
+            submenu = re.search(f"gnulinux-[^']*", l)[0]
+            continue
+        if version in l and 'recovery' not in l and 'old' not in l:
+            menu = re.search(f"gnulinux-[^']*", l)[0]
+            break
+    return f"{submenu}>{menu}" if submenu != None else menu
+
+def install_linux(tag, ssh_client, reboot):
+    version = re.findall(r'\d+\.\d+', tag)[0]
+    print(f"Will install Linux kernel {version} on host {ssh_client.ip}")
+
+    try:
+        print("Checking for boot files")
+        ssh_client.run(f"ls /boot/config-{version}*")
+        ssh_client.run(f"ls /boot/System.map-{version}*")
+        ssh_client.run(f"ls /boot/vmlinuz-{version}*")
+        ssh_client.run(f"ls /boot/initrd.img-{version}*")
+        ssh_client.run(f"ls /lib/modules/{version}*")
+    except Exception as e:
+        raise Exception(f"Failed to find /boot and /lib files for Linux {version}")
+
     print(f"Updating grub...")
     ssh_client.run("sudo update-grub")
     grub_str = get_grub_default(version, ssh_client)
@@ -77,13 +88,10 @@ def install_linux(tag, ssh_client, docker_base, build_dir, use_docker, reboot):
     ssh_client.run(f"sudo sed -i 's@GRUB_DEFAULT=.*@GRUB_DEFAULT=\"{grub_str}\"@' /etc/default/grub")
     ssh_client.run(f"sudo update-grub")
 
-    # Complete install
-    ssh_client.clear_wdir()
     if reboot:
         print(f"Rebooting {ssh_client.ip}...")
         ssh_client.reboot()
-
-        ssh_client.run("Updated Linux version to:")
+        print("Linux version is now:")
         ssh_client.run("uname -r")
     else:
         print("Done building; check configurations before reboot")
@@ -116,20 +124,22 @@ if __name__ == '__main__':
                         help='Whether to use a docker container for building')
     parser.add_argument('--reboot', action='store_true', default=False,
                         help='Whether to initiate reboot automatically')
+    parser.add_argument('--install_only', action='store_true', default=False,
+                        help='Whether to only initiate installation (assuming kernel built)')
     args = parser.parse_args()
 
     client = SSH(args.host, args.user)
     client.connect()
 
-    install_linux(args.version, client, args.base, args.dir, args.docker, args.reboot)
-
-    if args.reboot:
-        print("Installed Linux:")
-        client.run("uname -r")
+    if args.install_only:
+        install_linux(args.version, client, True)
     else:
-        # - Look for errors in the build output (warnings are okay)
-        # - Check for build files in /boot (config-*, System.map-*, vmlinuz-*, maybe initrd)
-        # - Check for modules in /lib
-        print("Built Linux; check for errors before rebooting")
+        build_linux(args.version, client, args.base, args.dir, args.docker)
+        install_linux(args.version, client, args.reboot)
+        if args.reboot:
+            print("Installed Linux:")
+            client.run("uname -r")
+        else:
+            print("Built Linux; check for errors before rebooting")
 
     client.close()

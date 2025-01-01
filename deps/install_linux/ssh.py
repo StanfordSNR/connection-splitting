@@ -75,28 +75,11 @@ class SSH:
                     self.run(cmd, raise_err=raise_err, return_stdout=return_stdout, retry=retry - 1)
             raise Exception(f"SSH exec failed for {self.ip}, {cmd} with error: {e}")
 
-    def run_with_prompts(self, cmd, resp="\n"):
-        '''
-        Run a command and periodically send `resp` to stdin.
-        This allows us to run commands that require selecting responses to prompts
-        if the response to each prompt is the same.
-        '''
-        cmd = f"cd {self.wdir} && {cmd}" if self.wdir else cmd
-        stdin, stdout, _ = self.client.exec_command(cmd, timeout=60, get_pty=True)
-        stdout.channel.set_combine_stderr(True)
-        while not stdout.channel.exit_status_ready():
-            l = stdout.readline()
-            print(l)
-            try:
-                stdin.write(resp)
-            except:
-                continue
-
     def close(self):
         self.client.close()
         self.client = None
 
-    def reboot(self, timeout=600, sleep=20, initial_wait=120):
+    def reboot(self, timeout=600, sleep=20, initial_wait=60):
         self.run("sudo systemctl reboot", raise_err=False)
         self.close()
         t = initial_wait

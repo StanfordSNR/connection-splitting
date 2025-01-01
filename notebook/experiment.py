@@ -37,6 +37,22 @@ class QUICTreatment(Treatment):
     def label(self) -> str:
         return f'{self.protocol}_{self.cca}'
 
+class TCPIperf3Treatment(Treatment):
+    def __init__(self, cca: str='cubic', pep: bool=False,
+                 label: Optional[str]=None):
+        super().__init__(protocol='tcp_iperf3')
+        self.cca = cca
+        self.pep = pep
+        if label is not None:
+            self._label = label
+        elif pep:
+            self._label = f'pep_{self.cca}'
+        else:
+            self._label = f'{self.protocol}_{self.cca}'
+
+    def label(self) -> str:
+        return self._label
+
 
 class NetworkSetting:
     DEFAULTS = {

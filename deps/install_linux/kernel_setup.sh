@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # USAGE:
-# kernel_setup.sh -t {linux git tag} -d {base directory}
+# kernel_setup.sh -t {linux git tag} -d {base directory} -u {base docker img, optional}
 while getopts "u:t:d:" opt; do
   case $opt in
     u) UBUNTU=$OPTARG ;;
@@ -13,15 +13,16 @@ done
 
 sudo apt install -y build-essential fakeroot libelf-dev bison flex bc wget libssl-dev libncurses-dev initramfs-tools
 
-echo "Cloning Linux..."
-cd $DIR
-if [ -d "$DIR/linux" ]; then
-    echo "Linux already cloned:"
-    cat linux/Makefile | head -n 5 # version information at top of Makefile
-    echo "Continuing..."
-else
-    git clone https://github.com/torvalds/linux.git --depth 1 --branch $TAG
+if [ -d "$DIR" ]; then
+    echo "$DIR directory already exists; deleting"
+    sudo rm -rf $DIR
 fi
+
+mkdir $DIR
+cd $DIR
+
+echo "Cloning Linux..."
+git clone https://github.com/torvalds/linux.git --depth 1 --branch $TAG
 
 echo "Setting up configs (certificates)..."
 cd $DIR/linux

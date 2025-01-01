@@ -11,6 +11,7 @@ from common import *
 class Protocol(Enum):
     QUIC = 0
     TCP = 1
+    TCP_IPERF3 = 2
 
 
 class BenchmarkResult:
@@ -46,6 +47,9 @@ class BenchmarkResult:
 
     def set_network_statistics(self, statistics):
         self.outputs[-1]['statistics'] = statistics
+
+    def set_additional_data(self, data):
+        self.outputs[-1]['additional_data'] = data
 
     def print(self, pretty_print=False):
         result = {
@@ -273,36 +277,13 @@ class TCPBenchmark(BaseBenchmark):
         else:
             return result[0]
 
-    def start_tcp_pep(self, logfile):
-        self.net.popen(self.net.r1, 'ip rule add fwmark 1 lookup 100')
-        self.net.popen(self.net.r1, 'ip route add local 0.0.0.0/0 dev lo table 100')
-        self.net.popen(self.net.r1, 'iptables -t mangle -F')
-        self.net.popen(self.net.r1, 'iptables -t mangle -A PREROUTING -i r1-eth1 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
-        self.net.popen(self.net.r1, 'iptables -t mangle -A PREROUTING -i r1-eth0 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
-
-        condition = threading.Condition()
-        def notify_when_ready(line):
-            if 'Pepsal started' in line:
-                with condition:
-                    condition.notify()
-
-        # The start_tcp_pep() function blocks until the TCP PEP is ready to
-        # split connections. That is, when we observe the 'Pepsal started'
-        # string in the router output.
-        self.net.popen(self.net.r1, 'pepsal -v', background=True,
-            console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
-        with condition:
-            notified = condition.wait(timeout=SETUP_TIMEOUT)
-            if not notified:
-                raise TimeoutError(f'start_tcp_pep timeout {SETUP_TIMEOUT}s')
-
     def run(self, label, logdir, num_trials, timeout, network_statistics):
         # Start the server
         self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
 
         # Start the TCP PEP
         if self.pep:
-            self.start_tcp_pep(logfile=f'{logdir}/{ROUTER_LOGFILE}')
+            self.net.start_tcp_pep(logfile=f'{logdir}/{ROUTER_LOGFILE}')
 
         # Initialize remaining trials
         num_trials_left = num_trials
@@ -356,3 +337,94 @@ class WebRTCBenchmark(BaseBenchmark):
 
     def start_webrtc_receiver(self):
         pass
+
+class Iperf3Benchmark(BaseBenchmark):
+    def __init__(
+        self,
+        net,
+        n: int,
+        cca: str,
+        pep: bool,
+    ):
+        super().__init__(net)
+        self.n = n
+        self.pep = pep
+        self.cca = cca
+
+    def start_server(self, logfile):
+        cmd = 'iperf3 -s'
+        condition = threading.Condition()
+
+        def notify_when_ready(line):
+            if 'Server listening' in line:
+                with condition:
+                    condition.notify()
+
+        self.net.popen(self.net.h2, cmd, background=True,
+                       console_logger=DEBUG, logfile=logfile,
+                       func=notify_when_ready)
+        with condition:
+            notified = condition.wait(timeout=SETUP_TIMEOUT)
+            if not notified:
+                raise TimeoutError(f'start_server timeout {SETUP_TIMEOUT}s')
+
+    def run_client(self, logfile, outfile, timeout):
+        cmd = f'iperf3 -c {self.net.h2.IP()} '
+        cmd += f'-n {self.n} '
+        cmd += f'--json > {outfile}'
+
+        timeout_flag = self.net.popen(self.net.h1, cmd, background=False,
+            console_logger=DEBUG, logfile=logfile,
+            timeout=timeout)
+
+        if timeout_flag:
+            return False
+        return True
+
+    def run(self, label, logdir, num_trials, timeout, network_statistics,
+            additional_data):
+        self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
+        if self.pep:
+            self.net.start_tcp_pep(logfile=f'{logdir}/{ROUTER_LOGFILE}')
+        num_trials_left = num_trials
+
+        while num_trials_left > 0:
+
+            result = BenchmarkResult(
+                label=label,
+                protocol=Protocol.TCP_IPERF3,
+                data_size=self.n,
+                cca=self.cca,
+                pep=self.pep,
+            )
+
+            total_time_s = 0
+            while num_trials_left > 0 and total_time_s < LOG_CHUNK_TIME:
+                result.append_new_output()
+                self.net.reset_statistics()
+                success = self.run_client(
+                            logfile=f'{logdir}/{CLIENT_LOGFILE}',
+                            outfile = 'tmp.json',
+                            timeout=timeout,
+                        )
+
+                if not success:
+                    ERROR("Failed iperf3 test")
+                    num_trials_left -= 1
+                    continue
+
+                if network_statistics:
+                    statistics = self.net.snapshot_statistics()
+                    result.set_network_statistics(statistics)
+
+                result.set_success(True)
+                json_data = json.load(open('tmp.json', 'r'))
+                os.system('sudo rm tmp.json')
+                if additional_data:
+                    result.set_additional_data(json_data)
+                result.set_time_s(json_data['end']['sum_received']['seconds'])
+                total_time_s += total_time_s
+                num_trials_left -= 1
+
+            result.print()
+
