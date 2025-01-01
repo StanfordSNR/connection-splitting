@@ -40,7 +40,7 @@ class QUICTreatment(Treatment):
 class TCPIperf3Treatment(Treatment):
     def __init__(self, cca: str='cubic', pep: bool=False,
                  label: Optional[str]=None):
-        super().__init__(protocol='tcp_iperf3')
+        super().__init__(protocol='iperf3')
         self.cca = cca
         self.pep = pep
         if label is not None:
