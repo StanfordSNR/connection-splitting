@@ -131,7 +131,7 @@ class RawDataParser:
                 try:
                     line = json.loads(line)
                 except Exception as e:
-                    print('parsing error:', e)
+                    print(f'parsing error: ({e}): {line}')
                     continue
                 for data_size, output in self._parse_line(line):
                     self._maybe_add(

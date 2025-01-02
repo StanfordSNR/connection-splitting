@@ -17,7 +17,6 @@ data/
 
 results/
 *.log
-*.json
 deps/certs/out/
 deps/pepsal*
 deps/depot_tools/

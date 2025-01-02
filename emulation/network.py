@@ -99,7 +99,6 @@ class EmulatedNetwork:
         if version is not None and (float(version) == 4.9 or float(version) <= 4.14):
             # Setting CCA on Mininet nodes will fail for kernel v4.9-4.14, but they
             # will inherit the CCA setting of the host.
-            print("Setting CCA on host")
             self.popen(None, cmd, stderr=True, console_logger=DEBUG)
         else:
             for host in self.net.hosts:

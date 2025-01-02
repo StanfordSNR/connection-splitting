@@ -368,7 +368,6 @@ class Iperf3Benchmark(BaseBenchmark):
         cmd += f'-n {self.n} '
         cmd += f'--json > {outfile}'
         self.net.h1.cmd(cmd)
-        self.net.h1.cmd("echo test")
 
     def run(self, label, logdir, num_trials, timeout, network_statistics,
             additional_data):
