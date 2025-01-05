@@ -23,6 +23,13 @@ make
 sudo make install
 }
 
+build_quiche() {
+cd $SIDEKICK_HOME/deps/quiche
+cargo build --release --bin quiche-client
+cargo build --release --bin quiche-server
+mkdir -p $SIDEKICK_HOME/deps/content
+}
+
 build_chromium () {
 cd $SIDEKICK_HOME/deps/chromium/src
 gclient runhooks
@@ -32,12 +39,15 @@ ninja -C out/Default quic_server quic_client
 
 if [ $1 == "all" ]; then
 	build_pepsal
+	build_quiche
 	build_sidekick
 	build_chromium
 elif [ $1 -eq 1 ]; then
 	build_pepsal
 elif [ $1 -eq 2 ]; then
 	build_chromium
+elif [ $1 -eq 3 ]; then
+	build_quiche
 else
 	help
 fi
