@@ -37,6 +37,13 @@ class QUICTreatment(Treatment):
     def label(self) -> str:
         return f'{self.protocol}_{self.cca}'
 
+class CloudflareQUICTreatment(Treatment):
+    def __init__(self, cca: str='cubic'):
+        super().__init__(protocol='quiche')
+        self.cca = cca
+    def label(self) -> str:
+        return f'{self.protocol}_{self.cca}'
+
 class TCPIperf3Treatment(Treatment):
     def __init__(self, cca: str='cubic', pep: bool=False,
                  label: Optional[str]=None):
