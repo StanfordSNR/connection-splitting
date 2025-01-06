@@ -1,6 +1,7 @@
 import os
 import select
 import sys
+import subprocess
 
 SERVER_LOGFILE = 'server.log'
 CLIENT_LOGFILE = 'client.log'
@@ -64,3 +65,7 @@ def handle_background_process(p, logfile, func):
                 f.write(line)
             if func is not None:
                 func(line)
+
+def get_linux_version():
+    proc = subprocess.run(['uname', '-r'], capture_output=True, text=True, check=True)
+    return proc.stdout.strip()

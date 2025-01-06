@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import threading
+import re
 
 from common import *
 from mininet.net import Mininet
@@ -28,7 +29,7 @@ class EmulatedNetwork:
     @staticmethod
     def _ip(digit):
         assert 0 <= digit < 10
-        return f'10.0.{int(digit)}.10/24'
+        return f'172.16.{int(digit)}.10/24'
 
     @staticmethod
     def _calculate_bdp(delay1, delay2, bw1, bw2):
@@ -48,7 +49,9 @@ class EmulatedNetwork:
 
         # Add netem with delay variability
         cmd = f'tc qdisc add dev {iface} root handle 2: '\
-              f'netem loss {loss}% delay {delay}ms '
+              f'netem delay {delay}ms '
+        if loss is not None and int(loss) > 0:
+            cmd += f'loss {loss}% '
         if jitter is not None:
             cmd += f'{jitter}ms {DEFAULT_DELAY_CORR}% distribution paretonormal'
         self.popen(host, cmd)
@@ -115,9 +118,16 @@ class EmulatedNetwork:
         self.popen(host, f'ethtool -K {iface} gso {gso} tso {tso}')
 
     def set_tcp_congestion_control(self, cca):
-        for host in self.net.hosts:
-            cmd = f'sudo sysctl -w net.ipv4.tcp_congestion_control={cca}'
-            self.popen(host, cmd, stderr=False, console_logger=DEBUG)
+        version = get_linux_version()
+        cmd = f'sudo sysctl -w net.ipv4.tcp_congestion_control={cca}'
+        version = re.search(r'^\d+\.\d+', version).group()
+        if version is not None and (float(version) == 4.9 or float(version) <= 4.14):
+            # Setting CCA on Mininet nodes will fail for kernel v4.9-4.14, but they
+            # will inherit the CCA setting of the host.
+            self.popen(None, cmd, stderr=True, console_logger=DEBUG)
+        else:
+            for host in self.net.hosts:
+                self.popen(host, cmd, stderr=False, console_logger=DEBUG)
 
     def reset_statistics(self):
         """After a reset, an immediate snapshot would return all 0 values.
@@ -248,6 +258,29 @@ class EmulatedNetwork:
         if self.net is not None:
             self.net.stop()
 
+    def start_tcp_pep(self, logfile):
+        self.popen(self.r1, 'ip rule add fwmark 1 lookup 100')
+        self.popen(self.r1, 'ip route add local 0.0.0.0/0 dev lo table 100')
+        self.popen(self.r1, 'iptables -t mangle -F')
+        self.popen(self.r1, 'iptables -t mangle -A PREROUTING -i r1-eth1 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
+        self.popen(self.r1, 'iptables -t mangle -A PREROUTING -i r1-eth0 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
+
+        condition = threading.Condition()
+        def notify_when_ready(line):
+            if 'Pepsal started' in line:
+                with condition:
+                    condition.notify()
+
+        # The start_tcp_pep() function blocks until the TCP PEP is ready to
+        # split connections. That is, when we observe the 'Pepsal started'
+        # string in the router output.
+        self.popen(self.net.r1, 'pepsal -v', background=True,
+            console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
+        with condition:
+            notified = condition.wait(timeout=SETUP_TIMEOUT)
+            if not notified:
+                raise TimeoutError(f'start_tcp_pep timeout {SETUP_TIMEOUT}s')
+
 
 """
 Defines an emulated network in mininet with one intermediate hop between the
@@ -284,11 +317,11 @@ class OneHopNetwork(EmulatedNetwork):
         self.popen(self.r1, "ifconfig r1-eth1 0")
         self.popen(self.r1, "ifconfig r1-eth0 hw ether 00:00:00:00:01:01")
         self.popen(self.r1, "ifconfig r1-eth1 hw ether 00:00:00:00:01:02")
-        self.popen(self.r1, "ip addr add 10.0.1.1/24 brd + dev r1-eth0")
-        self.popen(self.r1, "ip addr add 10.0.2.1/24 brd + dev r1-eth1")
+        self.popen(self.r1, "ip addr add 172.16.1.1/24 brd + dev r1-eth0")
+        self.popen(self.r1, "ip addr add 172.16.2.1/24 brd + dev r1-eth1")
         self.r1.cmd("echo 1 > /proc/sys/net/ipv4/ip_forward")
-        self.popen(self.h1, "ip route add default via 10.0.1.1")
-        self.popen(self.h2, "ip route add default via 10.0.2.1")
+        self.popen(self.h1, "ip route add 172.16.2.0/24 via 172.16.1.1")
+        self.popen(self.h2, "ip route add 172.16.1.0/24 via 172.16.2.1")
 
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
@@ -325,8 +358,8 @@ class DirectNetwork(EmulatedNetwork):
         }
 
         # Setup routing
-        self.popen(self.h1, "ip route add default via 10.0.1.10")
-        self.popen(self.h2, "ip route add default via 10.0.2.10")
+        self.popen(self.h1, "ip route add 172.16.2.0/24 via 172.16.1.10")
+        self.popen(self.h2, "ip route add 172.16.1.0/24 via 172.16.2.10")
 
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf

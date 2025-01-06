@@ -52,6 +52,21 @@ def benchmark_http3(net, args):
 def benchmark_webrtc():
     pass
 
+def benchmark_iperf3(net, args):
+    bm = Iperf3Benchmark(
+        net,
+        args.n,
+        cca=args.congestion_control,
+        pep=args.pep
+    )
+    bm.run(
+        args.label,
+        args.logdir,
+        args.trials,
+        args.timeout,
+        args.network_statistics,
+        args.additional_data
+    )
 
 def parse_data_size(n):
     try:
@@ -172,6 +187,25 @@ if __name__ == '__main__':
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     webrtc.set_defaults(ty='benchmark', benchmark=benchmark_webrtc)
+
+    ###########################################################################
+    # Iperf3 + TCP Benchmark
+    ###########################################################################
+    iperf3 = subparsers.add_parser(
+        'iperf3',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    iperf3.set_defaults(ty='benchmark', benchmark=benchmark_iperf3)
+    iperf3.add_argument('--additional_data', action='store_true',
+                        help='Include full iperf3 json output in results')
+    iperf3.add_argument('-n', type=parse_data_size, default=1000000,
+        help='Number of bytes to transfer via iperf3, '\
+             'e.g., 1000, 1K, 1M, 1000000, 1G')
+    iperf3.add_argument('-cca', '--congestion-control',
+        choices=['cubic', 'bbr'], default='cubic',
+        help='Congestion control algorithm at endpoints')
+    iperf3.add_argument('--pep', action='store_true',
+        help='Enable PEPsal, a connection-splitting TCP PEP')
 
     args = parser.parse_args()
     if args.topology == 'one_hop':

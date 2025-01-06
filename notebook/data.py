@@ -4,6 +4,7 @@ import select
 import statistics
 import subprocess
 import time
+import sys
 
 from collections import defaultdict
 from typing import List, Tuple, Dict, Optional
@@ -137,7 +138,7 @@ class RawDataParser:
                 try:
                     line = json.loads(line)
                 except Exception as e:
-                    print('parsing error:', e)
+                    print(f'parsing error: ({e}): {line}')
                     continue
                 for data_size, output in self._parse_line(line):
                     self._maybe_add(
@@ -243,7 +244,7 @@ class RawDataExecutor:
         exitcode = p.wait()
         if exitcode != 0:
             print(f'execute error: {exitcode}')
-            exit(1)
+            sys.exit(1)
 
 
 class RawData(RawDataParser, RawDataExecutor):
