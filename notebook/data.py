@@ -12,14 +12,19 @@ from typing import List, Tuple, Dict, Optional
 from common import SIDEKICK_HOME
 from experiment import Treatment, NetworkSetting, DirectNetworkSetting, Experiment
 
-DATA_HOME = f'{SIDEKICK_HOME}/data'
+DEFAULT_DATA_HOME = f'{SIDEKICK_HOME}/data'
 
 
 class RawDataFile:
-    def __init__(self, treatment: Treatment, network_setting: NetworkSetting):
+    def __init__(
+        self,
+        treatment: Treatment,
+        network_setting: NetworkSetting,
+        data_home: str,
+    ):
         self._treatment = treatment
         self._network_setting = network_setting
-        base_dir = f'{DATA_HOME}/{network_setting.label()}'
+        base_dir = f'{data_home}/{network_setting.label()}'
         self.base_path = f'{base_dir}/{treatment.label()}'
         os.system(f'mkdir -p {base_dir}')
         os.system(f'touch {self.stdout_filename()}')
@@ -71,6 +76,7 @@ class RawDataParser:
         exp: Experiment,
         max_data_sizes: Dict[str, int],
         max_networks: Dict[str, int],
+        data_home: str,
     ):
         """Parameters:
         - max_data_sizes: Map from treatment label -> data size index. For that
@@ -85,6 +91,7 @@ class RawDataParser:
         """
         self.exp = exp
         self.data = {}
+        self.data_home = data_home
 
         max_ds = defaultdict(lambda: len(exp.data_sizes))
         max_ns = defaultdict(lambda: len(exp.network_settings))
@@ -120,7 +127,7 @@ class RawDataParser:
     def _parse_files(self):
         for treatment in self.exp.get_treatments():
             for network_setting in self.exp.get_network_settings():
-                file = RawDataFile(treatment, network_setting)
+                file = RawDataFile(treatment, network_setting, self.data_home)
                 self._parse_file(file)
 
     def _parse_file(self, file: RawDataFile):
@@ -248,6 +255,7 @@ class RawData(RawDataParser, RawDataExecutor):
         max_retries=5,
         max_data_sizes: Dict[str, int]={},
         max_networks: Dict[str, int]={},
+        data_suffix: str='',
     ):
         """Parameters:
         - execute: Whether to collect missing data points.
@@ -262,9 +270,15 @@ class RawData(RawDataParser, RawDataExecutor):
           that index. Used to avoid collecting data points with unreasonably
           low throughput. If labels are not provided, defaults to all data
           sizes.
+        - data_suffix: The suffix of the directory to {SIDEKICK_HOME}/data in
+          which to parse raw data.
         """
+        if len(data_suffix) > 0:
+            data_home = f'{DEFAULT_DATA_HOME}/{data_suffix}'
+        else:
+            data_home = DEFAULT_DATA_HOME
         RawDataParser.__init__(self, exp, max_data_sizes=max_data_sizes,
-            max_networks=max_networks)
+            max_networks=max_networks, data_home=data_home)
         RawDataExecutor.__init__(self, exp.timeout)
 
         for i in range(max_retries):
@@ -287,7 +301,7 @@ class RawData(RawDataParser, RawDataExecutor):
                 network_data = treatment_data.get(network_setting.label())
                 if network_data is None:
                     continue
-                file = RawDataFile(treatment, network_setting)
+                file = RawDataFile(treatment, network_setting, self.data_home)
                 for data_size, size_data in sorted(network_data.items()):
                     num_results = len(size_data)
                     num_missing = self.exp.num_trials - num_results
@@ -302,13 +316,21 @@ class DirectRawData(RawDataParser, RawDataExecutor):
         exp: Experiment,
         execute=False,
         max_retries=10,
+        data_suffix: str='',
     ):
         """Parameters:
         - execute: Whether to collect missing data points.
         - max_retries: Maximum number of times to retry collecting missing data
           points after the first attempt.
+        - data_suffix: The suffix of the directory to {SIDEKICK_HOME}/data in
+          which to parse raw data.
         """
-        RawDataParser.__init__(self, exp, max_data_sizes={}, max_networks={})
+        if len(data_suffix) > 0:
+            data_home = f'{DEFAULT_DATA_HOME}/{data_suffix}'
+        else:
+            data_home = DEFAULT_DATA_HOME
+        RawDataParser.__init__(self, exp, max_data_sizes={}, max_networks={},
+            data_home=data_home)
         RawDataExecutor.__init__(self, exp.timeout)
 
         for i in range(max_retries):
@@ -354,11 +376,21 @@ class DirectRawData(RawDataParser, RawDataExecutor):
             assert len(network_data) == 1
             data_size, outputs = next(iter(network_data.items()))
 
+            # Count the number of timeouts in the existing outputs.
+            # If at least half of the expected trials are timeouts, then
+            # skip the remaining trials and adjacent data points.
+            num_timeouts = 0
+            for output in outputs:
+                if 'timeout' in output and output['timeout']:
+                    num_timeouts += 1
+            if num_timeouts >= (self.exp.num_trials + 1) // 2:
+                continue
+
             # If there are any trials remaining, then execute the data point
             # (and don't explore more).
             num_missing = self.exp.num_trials - len(outputs)
             if num_missing > 0:
-                file = RawDataFile(treatment, ns)
+                file = RawDataFile(treatment, ns, self.data_home)
                 missing_data.append((file, data_size, num_missing))
                 continue
 
@@ -371,15 +403,7 @@ class DirectRawData(RawDataParser, RawDataExecutor):
                 to_visit.append((i, j+1, k))
             if k+1 < len(zs):
                 to_visit.append((i, j, k+1))
-
-            # If half or more of the current data points timed out, then stop
-            # exploring. Otherwise, explore.
-            timeouts = 0
-            for output in outputs:
-                if 'timeout' in output and output['timeout']:
-                    timeouts += 1
-            if timeouts <= int(len(outputs) / 2):
-                queue += to_visit
+            queue += to_visit
 
         return missing_data
 

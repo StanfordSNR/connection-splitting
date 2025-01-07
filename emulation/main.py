@@ -151,7 +151,8 @@ if __name__ == '__main__':
         help='jitter on far path segment with a default delay correlation '\
             f'of {DEFAULT_DELAY_CORR}%% and a paretonormal distribution')
     net_config.add_argument('--qdisc', type=str, default='red',
-        choices=['red', 'fq_codel', 'noqueue'],
+        choices=['red', 'bfifo-large', 'bfifo-small', 'pie', 'codel',
+                 'policer', 'fq_codel'],
         help='netem queuing discipline')
 
     ###########################################################################
@@ -166,7 +167,7 @@ if __name__ == '__main__':
         help='Number of bytes to download in the HTTP/1.1 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
     tcp.add_argument('-cca', '--congestion-control',
-        choices=['cubic', 'bbr', 'bbr2'], default='cubic',
+        choices=['reno', 'cubic', 'bbr', 'bbr2'], default='cubic',
         help='Congestion control algorithm at endpoints')
     tcp.add_argument('--pep', action='store_true',
         help='Enable PEPsal, a connection-splitting TCP PEP')
