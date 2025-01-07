@@ -32,6 +32,14 @@ cd $SIDEKICK_HOME/deps
 
 Test that `pepsal` is on your path.
 
+Build and install quiche:
+
+```
+cd $SIDEKICK_HOME/deps
+git clone --recursive https://github.com/cloudflare/quiche
+./build_deps.sh 3
+```
+
 ### Generate certificates
 
 Generate certificates using Chromium scripts.

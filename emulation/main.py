@@ -48,6 +48,22 @@ def benchmark_http3(net, args):
         args.network_statistics,
     )
 
+def benchmark_quiche(net, args):
+    bm = CloudflareQUICBenchmark(
+        net,
+        args.n,
+        cca=args.congestion_control,
+        certfile=args.certfile,
+        keyfile=args.keyfile,
+    )
+    bm.run(
+        args.label,
+        args.logdir,
+        args.trials,
+        args.timeout,
+        args.network_statistics,
+    )
+
 
 def benchmark_webrtc():
     pass
@@ -177,6 +193,25 @@ if __name__ == '__main__':
     quic.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
         help='Path to SSL certificate')
     quic.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_QUIC,
+        help='Path to SSL key')
+
+    ###########################################################################
+    # HTTP/3+Cloudflare QUIC benchmark
+    ###########################################################################
+    quiche = subparsers.add_parser(
+        'quiche',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    quiche.set_defaults(ty='benchmark', benchmark=benchmark_quiche)
+    quiche.add_argument('-n', type=parse_data_size, default=1000000,
+        help='Number of bytes to download in the HTTP/3 GET request, '\
+             'e.g., 1000, 1K, 1M, 1000000, 1G')
+    quiche.add_argument('-cca', '--congestion-control',
+        choices=['cubic', 'reno', 'bbr1', 'bbr'], default='cubic',
+        help='Congestion control algorithm at endpoints')
+    quiche.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
+        help='Path to SSL certificate')
+    quiche.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_TCP,
         help='Path to SSL key')
 
     ###########################################################################

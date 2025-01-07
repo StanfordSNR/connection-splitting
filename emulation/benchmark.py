@@ -4,6 +4,7 @@ import threading
 from datetime import datetime
 from enum import Enum
 from typing import Optional, Tuple
+import re
 
 from common import *
 
@@ -12,6 +13,7 @@ class Protocol(Enum):
     QUIC = 0
     TCP = 1
     TCP_IPERF3 = 2
+    CloudflareQUIC = 3
 
 
 class BenchmarkResult:
@@ -69,6 +71,128 @@ class BaseBenchmark:
     def start_sidekick(self):
         pass
 
+class CloudflareQUICBenchmark(BaseBenchmark):
+    def __init__(self, net, n: str, cca: str, certfile=None, keyfile=None):
+        super().__init__(net)
+        self.n = n
+        self.cca = cca
+        self.server_ip = self.net.h2.IP()
+        self.certfile = certfile
+        self.keyfile = keyfile
+
+    def start_server(self, logfile):
+        base = 'deps/quiche/target/release'
+        cmd = f'./{base}/quiche-server '\
+              f'--cert={self.certfile} '\
+              f'--key={self.keyfile} '\
+              f'--cc-algorithm {self.cca} ' \
+              f'--root deps/content ' \
+              f'--listen {self.server_ip}:4433'
+
+        condition = threading.Condition()
+        def notify_when_ready(line):
+            if 'listening' in line.lower():
+                with condition:
+                    condition.notify()
+
+        # The start_server() function blocks until the server is ready to
+        # accept client requests. That is, when we observe the 'Serving'
+        # string in the server output.
+        self.net.popen(self.net.h2, cmd, background=True,
+            console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
+        with condition:
+            notified = condition.wait(timeout=SETUP_TIMEOUT)
+            if not notified:
+                raise TimeoutError(f'start_server timeout {SETUP_TIMEOUT}s')
+
+    def run_client(self, logfile, timeout) -> Optional[Tuple[int, float]]:
+        """Returns the status code and runtime (seconds) of the GET request.
+        """
+        base = 'deps/quiche/target/release'
+        cmd = f'./{base}/quiche-client '\
+              f'--no-verify '\
+              f'--method GET '\
+              f'--cc-algorithm {self.cca} ' \
+              f'-- https://{self.server_ip}:4433/tmp'
+
+        result = []
+        def parse_result(line):
+            if 'response(s) received in ' not in line:
+                return
+            if 'Not found' in line:
+                return
+            try:
+                match = re.search(r'received in \d+\.\d+', line).group(0)
+                time_s = float(match.split(' ')[-1])
+                result.append(time_s)
+            except:
+                pass
+
+
+        timeout_flag = self.net.popen(self.net.h1, cmd, background=False,
+            console_logger=DEBUG, logfile=logfile, func=parse_result,
+            timeout=timeout)
+        if timeout_flag:
+            return (HTTP_TIMEOUT_STATUSCODE, timeout)
+        elif len(result) == 0:
+            WARN('Cloudflare QUIC client failed to return result')
+        elif len(result) > 1:
+            WARN(f'Cloudflare QUIC client returned multiple results {result}')
+        else:
+            return (HTTP_OK_STATUSCODE, result[0])
+
+    def run(self, label, logdir, num_trials, timeout, network_statistics):
+        # Make file with N bytes
+        os.system(f'dd if=/dev/zero of=./deps/content/tmp bs=1 count={self.n}')
+        # Required outputs are in INFO logs
+        os.environ['RUST_LOG'] = 'info'
+
+        # Start the server
+        self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
+
+        # Initialize remaining trials
+        num_trials_left = num_trials
+
+        # Run the client
+        while num_trials_left > 0:
+            result = BenchmarkResult(
+                label=label,
+                protocol=Protocol.CloudflareQUIC,
+                data_size=self.n,
+                cca=self.cca,
+                pep=False,
+            )
+
+            # Log output every LOG_CHUNK_TIME while continuing to run trials
+            total_time_s = 0
+            while num_trials_left > 0 and total_time_s < LOG_CHUNK_TIME:
+                result.append_new_output()
+                self.net.reset_statistics()
+                output = self.run_client(
+                    logfile=f'{logdir}/{CLIENT_LOGFILE}',
+                    timeout=timeout,
+                )
+
+                # Error
+                if output is None:
+                    ERROR('no output')
+                    num_trials_left -= 1
+                    continue
+
+                # Success
+                if network_statistics:
+                    statistics = self.net.snapshot_statistics()
+                    result.set_network_statistics(statistics)
+                status_code, time_s = output
+                result.set_success(status_code == HTTP_OK_STATUSCODE)
+                result.set_timeout(status_code == HTTP_TIMEOUT_STATUSCODE)
+                result.set_time_s(time_s)
+
+                total_time_s += time_s
+                num_trials_left -= 1
+            result.print()
+
+        os.system("rm ./deps/content/tmp")
 
 class QUICBenchmark(BaseBenchmark):
     def __init__(self, net, n: str, cca: str, certfile=None, keyfile=None):
@@ -150,6 +274,7 @@ class QUICBenchmark(BaseBenchmark):
         if timeout_flag:
             return (HTTP_TIMEOUT_STATUSCODE, timeout)
         elif len(result) == 0:
+            # E.g., 404 not found
             WARN('QUIC client failed to return result')
         elif len(result) > 1:
             WARN(f'QUIC client returned multiple results {result}')
