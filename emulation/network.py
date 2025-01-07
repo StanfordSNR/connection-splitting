@@ -37,7 +37,7 @@ class EmulatedNetwork:
         bw_mbps = min(bw1, bw2)
         return rtt_ms * bw_mbps * 1000000. / 1000. / 8.
 
-    def _config_iface(self, iface, delay, loss, bw, bdp, qdisc,
+    def _config_iface(self, iface, delay, loss, bw, rtt, bdp, qdisc=None,
                       gso=True, tso=True, jitter=None):
         """Configures the given interface <iface>:
         - Loss: <loss>% stochastic packet loss
@@ -59,33 +59,58 @@ class EmulatedNetwork:
         # Add HTB for bandwidth
         # Take the min because sch_htb complains about the quantum being too big
         # past 200,000 bytes. Otherwise calculate using the default r2q.
+        # If using a policer at the proxy, make the bandwidth of the links
+        # twice as high as the policed rate.
         r2q = 10
         quantum = min(int(bw*1000000/8 / r2q), 200000)
         self.popen(host, f'tc qdisc add dev {iface} parent 2: handle 3: ' \
                          f'htb default 10')
+        htb_rate = int(2*bw) if qdisc == 'policer' else bw
         self.popen(host, f'tc class add dev {iface} parent 3: ' \
-                         f'classid 10 htb rate {bw}Mbit quantum {quantum}')
+                         f'classid 10 htb rate {htb_rate}Mbit quantum {quantum}')
 
         # Add queue management
-        if qdisc == 'red':
-            # The harddrop byte limit needs to be a minimum value or RED will be
-            # unable to calculate the EWMA constant so that min >= avpkt
-            limit = max(int(bdp*4), 1000*3*4*4)
-            qmax = int(limit/4)
-            qmin = int(qmax/3)
-            avpkt = 1000
-            # RED: WARNING. Burst (2*min+max)/(3*avpkt) seems to be too large.
-            # RTNETLINK answers: Invalid argument
-            burst = int(1 + qmin / avpkt)
-            self.popen(host, f'tc qdisc add dev {iface} parent 3:10 handle 11: ' \
-                             f'red limit {limit} avpkt {avpkt} ' \
-                             f'adaptive harddrop bandwidth {bw}Mbit burst {burst}', console_logger=WARN)
-        elif qdisc == 'fq_codel':
-            self.popen(host, f'tc qdisc add dev {iface} root fq_codel', console_logger=WARN)
-        elif qdisc == 'noqueue':
-            self.popen(host, f'tc qdisc add dev {iface} root noqueue', console_logger=WARN)
-        else:
-            raise NotImplementedError(qdisc)
+        if qdisc == 'policer':
+            # Burst time of 10ms
+            burst = int(bw * 10 * 1000 / 8)
+            queue_cmd = f'tc filter add dev {iface} parent 3: '\
+                        f'protocol ip u32 match ip src 0.0.0.0/0 '\
+                        f'action police rate {bw}mbit burst {burst} '\
+                        f'conform-exceed drop'
+            self.popen(host, queue_cmd, console_logger=DEBUG)
+        elif qdisc is not None:
+            queue_cmd = f'tc qdisc add dev {iface} parent 3:10 handle 11: '
+            if qdisc == 'red':
+                # The harddrop byte limit needs to be a min value or RED will
+                # be unable to calculate the EWMA constant so that min >= avpkt
+                limit = max(int(bdp*4), 1000*3*4*4)
+                qmax = int(limit/4)
+                qmin = int(qmax/3)
+                avpkt = 1000
+                # RED: WARNING. Burst (2*min+max)/(3*avpkt) seems to be too large.
+                # RTNETLINK answers: Invalid argument
+                burst = int(1 + qmin / avpkt)
+                queue_cmd += f'red limit {limit} avpkt {avpkt} ' \
+                             f'adaptive harddrop ' \
+                             f'bandwidth {bw}Mbit burst {burst}'
+            elif qdisc == 'bfifo-large':
+                queue_cmd += f'bfifo limit {bdp}' # BDP
+            elif qdisc == 'bfifo-small':
+                limit = max(1500, int(0.1 * bdp)) # min(mtu, 0.1*BDP)
+                queue_cmd += f'bfifo limit {limit}'
+            elif qdisc == 'pie':
+                # Memory limit, since packets are dropped based on target delay
+                limit = int(4 * bdp / 1500)
+                queue_cmd +=      f'pie limit {limit}'
+            elif qdisc == 'codel':
+                # Memory limit, since packets are dropped based on target delay
+                limit = int(4 * bdp / 1500)
+                queue_cmd += f'codel limit {limit} interval {rtt}ms'
+            elif qdisc == 'fq_codel':
+                queue_cmd += f'fq_codel'
+            else:
+                raise NotImplementedError(qdisc)
+            self.popen(host, queue_cmd, console_logger=DEBUG)
 
         # Turn off tso and gso to send MTU-sized packets
         gso = 'on' if gso else 'off'
@@ -300,11 +325,12 @@ class OneHopNetwork(EmulatedNetwork):
 
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
+        rtt = 2 * (delay1 + delay2)
         bdp = self._calculate_bdp(delay1, delay2, bw1, bw2)
-        self._config_iface('h1-eth0', delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
-        self._config_iface('r1-eth0', delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
-        self._config_iface('r1-eth1', delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
-        self._config_iface('h2-eth0', delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
+        self._config_iface('h1-eth0', delay1, loss1, bw1, rtt, bdp, qdisc, jitter=jitter1)
+        self._config_iface('r1-eth0', delay1, loss1, bw1, rtt, bdp, jitter=jitter1)
+        self._config_iface('r1-eth1', delay2, loss2, bw2, rtt, bdp, jitter=jitter2)
+        self._config_iface('h2-eth0', delay2, loss2, bw2, rtt, bdp, qdisc, jitter=jitter2)
 
 
 """
@@ -338,5 +364,6 @@ class DirectNetwork(EmulatedNetwork):
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
         bdp = self._calculate_bdp(delay, 0, bw, bw)
-        self._config_iface('h1-eth0', delay, loss, bw, bdp, qdisc, jitter=jitter)
-        self._config_iface('h2-eth0', delay, loss, bw, bdp, qdisc, jitter=jitter)
+        rtt = 2 * delay
+        self._config_iface('h1-eth0', delay, loss, bw, rtt, bdp, qdisc, jitter=jitter)
+        self._config_iface('h2-eth0', delay, loss, bw, rtt, bdp, qdisc, jitter=jitter)

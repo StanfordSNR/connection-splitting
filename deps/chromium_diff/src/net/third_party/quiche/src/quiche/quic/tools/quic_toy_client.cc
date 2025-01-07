@@ -301,20 +301,26 @@ int QuicToyClient::SendRequestsAndPrintResponses(
   QuicConfig config;
   std::string connection_options_string =
       quiche::GetQuicheCommandLineFlag(FLAGS_connection_options);
+  std::cout << "connection_options_string: " << connection_options_string << std::endl;
   if (!connection_options_string.empty()) {
     config.SetConnectionOptionsToSend(
         ParseQuicTagVector(connection_options_string));
   }
   std::string client_connection_options_string =
       quiche::GetQuicheCommandLineFlag(FLAGS_client_connection_options);
+  std::cout << "client_connection_options_string: " << client_connection_options_string << std::endl;
   if (!client_connection_options_string.empty()) {
     config.SetClientConnectionOptions(
         ParseQuicTagVector(client_connection_options_string));
   }
   if (quiche::GetQuicheCommandLineFlag(FLAGS_multi_packet_chlo)) {
-    // Make the ClientHello span multiple packets by adding a large 'discard'
-    // transport parameter.
-    config.SetDiscardLengthToSend(2000);
+    // Make the ClientHello span multiple packets by adding a custom transport
+    // parameter.
+    constexpr auto kCustomParameter =
+        static_cast<TransportParameters::TransportParameterId>(0x173E);
+    std::string custom_value(2000, '?');
+    config.custom_transport_parameters_to_send()[kCustomParameter] =
+        custom_value;
   }
   config.set_max_time_before_crypto_handshake(
       QuicTime::Delta::FromMilliseconds(quiche::GetQuicheCommandLineFlag(
