@@ -1,7 +1,6 @@
 import subprocess
 import sys
 import threading
-import re
 
 from common import *
 from mininet.net import Mininet
@@ -52,10 +51,13 @@ class EmulatedNetwork:
         host = self.iface_to_host[iface]
 
         # Configure the end-host or router
-        # BBR requires fq with pacing; use this for all CCAs for consistency
         if not netem:
-            self.popen(host, f'tc qdisc add dev {iface} root handle 2: '\
-                             f'fq pacing', console_logger=DEBUG)
+            # BBR requires fq (with pacing) for kernel versions <v4.20
+            # https://groups.google.com/g/bbr-dev/c/zZ5c0qkWqbo/m/QulUwXLZAQAJ
+            linux_version = get_linux_version()
+            if linux_version < 5.0:
+                self.popen(host, f'tc qdisc add dev {iface} root handle 2: '\
+                                f'fq pacing', console_logger=DEBUG)
             return
 
         # Configure the network emulator node
@@ -138,8 +140,7 @@ class EmulatedNetwork:
             return
         version = get_linux_version()
         cmd = f'sudo sysctl -w net.ipv4.tcp_congestion_control={cca}'
-        version = re.search(r'^\d+\.\d+', version).group()
-        if version is not None and (float(version) == 4.9 or float(version) <= 4.14):
+        if version == 4.9 or version < 4.15:
             # Setting CCA on Mininet nodes will fail for kernel v4.9-4.14, but they
             # will inherit the CCA setting of the host.
             self.popen(None, cmd, stderr=True, console_logger=DEBUG)
@@ -292,7 +293,7 @@ class EmulatedNetwork:
         # The start_tcp_pep() function blocks until the TCP PEP is ready to
         # split connections. That is, when we observe the 'Pepsal started'
         # string in the router output.
-        self.popen(self.net.r1, 'pepsal -v', background=True,
+        self.popen(self.r1, 'pepsal -v', background=True,
             console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
         with condition:
             notified = condition.wait(timeout=SETUP_TIMEOUT)
