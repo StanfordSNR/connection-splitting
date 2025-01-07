@@ -6,8 +6,6 @@ from common import *
 from mininet.net import Mininet
 from mininet.link import TCLink
 
-APPLICATION_CCAS = ['bbr2']
-
 """
 Defines a basic network in Mininet with two hosts, h1 and h2.
 """
@@ -135,9 +133,6 @@ class EmulatedNetwork:
                    console_logger=DEBUG)
 
     def set_tcp_congestion_control(self, cca):
-        if cca in APPLICATION_CCAS:
-            WARN('CCA unsupported by kernel; assuming it will be set in application')
-            return
         version = get_linux_version()
         cmd = f'sudo sysctl -w net.ipv4.tcp_congestion_control={cca}'
         if version == 4.9 or version < 4.15:
