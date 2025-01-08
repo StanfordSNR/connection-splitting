@@ -25,9 +25,9 @@ sudo make install
 
 build_quiche() {
 cd $SIDEKICK_HOME/deps/quiche
+git checkout v-0.22.0
 cargo build --release --bin quiche-client
 cargo build --release --bin quiche-server
-mkdir -p $SIDEKICK_HOME/deps/content
 }
 
 build_chromium () {

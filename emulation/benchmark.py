@@ -86,7 +86,6 @@ class CloudflareQUICBenchmark(BaseBenchmark):
               f'--cert={self.certfile} '\
               f'--key={self.keyfile} '\
               f'--cc-algorithm {self.cca} ' \
-              f'--root deps/content ' \
               f'--listen {self.server_ip}:4433'
 
         condition = threading.Condition()
@@ -113,7 +112,7 @@ class CloudflareQUICBenchmark(BaseBenchmark):
               f'--no-verify '\
               f'--method GET '\
               f'--cc-algorithm {self.cca} ' \
-              f'-- https://{self.server_ip}:4433/tmp'
+              f'-- https://{self.server_ip}:4433/{self.n}'
 
         result = []
         def parse_result(line):
@@ -142,8 +141,6 @@ class CloudflareQUICBenchmark(BaseBenchmark):
             return (HTTP_OK_STATUSCODE, result[0])
 
     def run(self, label, logdir, num_trials, timeout, network_statistics):
-        # Make file with N bytes
-        os.system(f'dd if=/dev/zero of=./deps/content/tmp bs=1 count={self.n}')
         # Required outputs are in INFO logs
         os.environ['RUST_LOG'] = 'info'
 
@@ -191,8 +188,6 @@ class CloudflareQUICBenchmark(BaseBenchmark):
                 total_time_s += time_s
                 num_trials_left -= 1
             result.print()
-
-        os.system("rm ./deps/content/tmp")
 
 class QUICBenchmark(BaseBenchmark):
     def __init__(self, net, n: str, cca: str, certfile=None, keyfile=None):
