@@ -80,6 +80,11 @@ class CloudflareQUICBenchmark(BaseBenchmark):
         self.certfile = certfile
         self.keyfile = keyfile
 
+    def restart_server(self, logfile):
+        WARN('Restarting quiche-server')
+        self.net.h2.cmd('killall quiche-server')
+        self.start_server(logfile=logfile)
+
     def start_server(self, logfile):
         base = 'deps/quiche/target/release'
         cmd = f'./{base}/quiche-server '\
@@ -115,11 +120,14 @@ class CloudflareQUICBenchmark(BaseBenchmark):
               f'-- https://{self.server_ip}:4433/{self.n}'
 
         result = []
+        timed_out = False
         def parse_result(line):
             if 'response(s) received in ' not in line:
                 return
             if 'Not found' in line:
                 return
+            if 'timed out' in line:
+                timed_out = True
             try:
                 match = re.search(r'received in \d+\.\d+', line).group(0)
                 time_s = float(match.split(' ')[-1])
@@ -130,8 +138,16 @@ class CloudflareQUICBenchmark(BaseBenchmark):
 
         timeout_flag = self.net.popen(self.net.h1, cmd, background=False,
             console_logger=DEBUG, logfile=logfile, func=parse_result,
-            timeout=timeout)
-        if timeout_flag:
+            timeout=timeout, exit_on_err=False)
+
+        if timed_out:
+            # Max idle timeout reached when there have been no packets received for
+            # N seconds (default: 30); this implies that something went
+            # wrong with the server or client, which should be distinguished from
+            # a timeout due to insufficient bandwidth.
+            WARN('Cloudflare QUIC client failed (idle timeout)')
+            return None
+        elif timeout_flag:
             return (HTTP_TIMEOUT_STATUSCODE, timeout)
         elif len(result) == 0:
             WARN('Cloudflare QUIC client failed to return result')
@@ -149,6 +165,8 @@ class CloudflareQUICBenchmark(BaseBenchmark):
 
         # Initialize remaining trials
         num_trials_left = num_trials
+        # allow N "no output" errors without decrementing trials
+        num_errors_left = num_trials
 
         # Run the client
         while num_trials_left > 0:
@@ -173,7 +191,10 @@ class CloudflareQUICBenchmark(BaseBenchmark):
                 # Error
                 if output is None:
                     ERROR('no output')
-                    num_trials_left -= 1
+                    self.restart_server(f'{logdir}/{SERVER_LOGFILE}')
+                    num_errors_left -= 1
+                    if num_errors_left == 0:
+                        num_trials_left = 0
                     continue
 
                 # Success
