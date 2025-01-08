@@ -207,7 +207,7 @@ if __name__ == '__main__':
         help='Number of bytes to download in the HTTP/3 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
     quiche.add_argument('-cca', '--congestion-control',
-        choices=['cubic', 'reno', 'bbr1', 'bbr'], default='cubic',
+        choices=['cubic', 'reno', 'bbr2', 'bbr'], default='cubic',
         help='Congestion control algorithm at endpoints')
     quiche.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
         help='Path to SSL certificate')
