@@ -2,6 +2,7 @@ import os
 import select
 import sys
 import subprocess
+import re
 
 SERVER_LOGFILE = 'server.log'
 CLIENT_LOGFILE = 'client.log'
@@ -68,4 +69,5 @@ def handle_background_process(p, logfile, func):
 
 def get_linux_version():
     proc = subprocess.run(['uname', '-r'], capture_output=True, text=True, check=True)
-    return proc.stdout.strip()
+    version = proc.stdout.strip()
+    return float(re.search(r'^\d+\.\d+', version).group())

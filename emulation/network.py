@@ -1,13 +1,10 @@
 import subprocess
 import sys
 import threading
-import re
 
 from common import *
 from mininet.net import Mininet
 from mininet.link import TCLink
-
-APPLICATION_CCAS = ['bbr2']
 
 """
 Defines a basic network in Mininet with two hosts, h1 and h2.
@@ -38,15 +35,30 @@ class EmulatedNetwork:
         bw_mbps = min(bw1, bw2)
         return rtt_ms * bw_mbps * 1000000. / 1000. / 8.
 
-    def _config_iface(self, iface, delay, loss, bw, rtt, bdp, qdisc=None,
+    def _config_iface(self, iface, netem: bool,
+                      delay=None, loss=None, bw=None, bdp=None, qdisc=None,
                       gso=True, tso=True, jitter=None):
         """Configures the given interface <iface>:
+        - Netem: whether this is a network emulation node (i.e., delay, loss, etc.
+          should be configured)
         - Loss: <loss>% stochastic packet loss
         - Delay: <delay>ms delay w/ ±<jitter>ms jitter, <delay_corr>% correlation
         - Base bandwidth: <bw> Mbit/s, range: <bw_min> to <bw_max> Mbit/s
         - Bandwidth-delay product: <bdp> is used to set the queue size
         """
         host = self.iface_to_host[iface]
+
+        # Configure the end-host or router
+        if not netem:
+            # BBR requires fq (with pacing) for kernel versions <v4.20
+            # https://groups.google.com/g/bbr-dev/c/zZ5c0qkWqbo/m/QulUwXLZAQAJ
+            linux_version = get_linux_version()
+            if linux_version < 5.0:
+                self.popen(host, f'tc qdisc add dev {iface} root handle 2: '\
+                                f'fq pacing', console_logger=DEBUG)
+            return
+
+        # Configure the network emulator node
 
         # Add netem with delay variability
         cmd = f'tc qdisc add dev {iface} root handle 2: '\
@@ -55,7 +67,7 @@ class EmulatedNetwork:
             cmd += f'loss {loss}% '
         if jitter is not None:
             cmd += f'{jitter}ms {DEFAULT_DELAY_CORR}% distribution paretonormal'
-        self.popen(host, cmd)
+        self.popen(host, cmd, console_logger=DEBUG)
 
         # Add HTB for bandwidth
         # Take the min because sch_htb complains about the quantum being too big
@@ -65,10 +77,11 @@ class EmulatedNetwork:
         r2q = 10
         quantum = min(int(bw*1000000/8 / r2q), 200000)
         self.popen(host, f'tc qdisc add dev {iface} parent 2: handle 3: ' \
-                         f'htb default 10')
+                         f'htb default 10', console_logger=DEBUG)
         htb_rate = int(2*bw) if qdisc == 'policer' else bw
         self.popen(host, f'tc class add dev {iface} parent 3: ' \
-                         f'classid 10 htb rate {htb_rate}Mbit quantum {quantum}')
+                         f'classid 10 htb rate {htb_rate}Mbit quantum {quantum}',
+                         console_logger=DEBUG)
 
         # Add queue management
         if qdisc == 'policer':
@@ -116,15 +129,13 @@ class EmulatedNetwork:
         # Turn off tso and gso to send MTU-sized packets
         gso = 'on' if gso else 'off'
         tso = 'on' if tso else 'off'
-        self.popen(host, f'ethtool -K {iface} gso {gso} tso {tso}')
+        self.popen(host, f'ethtool -K {iface} gso {gso} tso {tso}',
+                   console_logger=DEBUG)
 
     def set_tcp_congestion_control(self, cca):
-        if cca in APPLICATION_CCAS:
-            WARN('CCA unsupported by kernel; assuming it will be set in application')
         version = get_linux_version()
         cmd = f'sudo sysctl -w net.ipv4.tcp_congestion_control={cca}'
-        version = re.search(r'^\d+\.\d+', version).group()
-        if version is not None and (float(version) == 4.9 or float(version) <= 4.14):
+        if version == 4.9 or version < 4.15:
             # Setting CCA on Mininet nodes will fail for kernel v4.9-4.14, but they
             # will inherit the CCA setting of the host.
             self.popen(None, cmd, stderr=True, console_logger=DEBUG)
@@ -277,7 +288,7 @@ class EmulatedNetwork:
         # The start_tcp_pep() function blocks until the TCP PEP is ready to
         # split connections. That is, when we observe the 'Pepsal started'
         # string in the router output.
-        self.popen(self.net.r1, 'pepsal -v', background=True,
+        self.popen(self.r1, 'pepsal -v', background=True,
             console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
         with condition:
             notified = condition.wait(timeout=SETUP_TIMEOUT)
@@ -295,16 +306,20 @@ class OneHopNetwork(EmulatedNetwork):
     def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2, jitter1, jitter2, qdisc):
         super().__init__()
 
-        # Add hosts and switches
+        # Add hosts, switches, and network emulation nodes
         self.h1 = self.net.addHost('h1', ip=self._ip(1),
                                    mac=self._mac(1))
         self.h2 = self.net.addHost('h2', ip=self._ip(2),
                                    mac=self._mac(2))
         self.r1 = self.net.addHost('r1')
+        self.e1 = self.net.addHost('e1')
+        self.e2 = self.net.addHost('e2')
 
         # Add links
-        self.net.addLink(self.r1, self.h1)
-        self.net.addLink(self.r1, self.h2)
+        self.net.addLink(self.h1, self.e1)
+        self.net.addLink(self.e1, self.r1)
+        self.net.addLink(self.r1, self.e2)
+        self.net.addLink(self.e2, self.h2)
         self.net.build()
 
         # Initialize statistics
@@ -312,7 +327,11 @@ class OneHopNetwork(EmulatedNetwork):
             'h1-eth0': self.h1,
             'r1-eth0': self.r1,
             'r1-eth1': self.r1,
-            'h2-eth0': self.h2
+            'h2-eth0': self.h2,
+            'e1-eth0': self.e1,
+            'e1-eth1': self.e1,
+            'e2-eth0': self.e2,
+            'e2-eth1': self.e2,
         }
 
         # Setup routing and forwarding
@@ -326,14 +345,29 @@ class OneHopNetwork(EmulatedNetwork):
         self.popen(self.h1, "ip route add 172.16.2.0/24 via 172.16.1.1")
         self.popen(self.h2, "ip route add 172.16.1.0/24 via 172.16.2.1")
 
+        # Set up bridging on the network emulation nodes
+        self.popen(self.e1, "brctl addbr br0")
+        self.popen(self.e1, "brctl addif br0 e1-eth0")
+        self.popen(self.e1, "brctl addif br0 e1-eth1")
+        self.popen(self.e1, "ip link set dev br0 up")
+        self.popen(self.e2, "brctl addbr br0")
+        self.popen(self.e2, "brctl addif br0 e2-eth0")
+        self.popen(self.e2, "brctl addif br0 e2-eth1")
+        self.popen(self.e2, "ip link set dev br0 up")
+
+
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
         rtt = 2 * (delay1 + delay2)
         bdp = self._calculate_bdp(delay1, delay2, bw1, bw2)
-        self._config_iface('h1-eth0', delay1, loss1, bw1, rtt, bdp, qdisc, jitter=jitter1)
-        self._config_iface('r1-eth0', delay1, loss1, bw1, rtt, bdp, jitter=jitter1)
-        self._config_iface('r1-eth1', delay2, loss2, bw2, rtt, bdp, jitter=jitter2)
-        self._config_iface('h2-eth0', delay2, loss2, bw2, rtt, bdp, qdisc, jitter=jitter2)
+        self._config_iface('h1-eth0', False)
+        self._config_iface('r1-eth0', False)
+        self._config_iface('r1-eth1', False)
+        self._config_iface('h2-eth0', False)
+        self._config_iface('e1-eth0', True, delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
+        self._config_iface('e1-eth1', True, delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
+        self._config_iface('e2-eth0', True, delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
+        self._config_iface('e2-eth1', True, delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
 
 
 """
@@ -349,24 +383,35 @@ class DirectNetwork(EmulatedNetwork):
                                    mac=self._mac(1))
         self.h2 = self.net.addHost('h2', ip=self._ip(2),
                                    mac=self._mac(2))
+        self.e1 = self.net.addHost('e1')
 
         # Add link
-        self.net.addLink(self.h1, self.h2)
+        self.net.addLink(self.h1, self.e1)
+        self.net.addLink(self.e1, self.h2)
         self.net.build()
 
         # Initialize statistics
         self.iface_to_host = {
             'h1-eth0': self.h1,
             'h2-eth0': self.h2,
+            'e1-eth0': self.e1,
+            'e1-eth1': self.e1,
         }
 
         # Setup routing
         self.popen(self.h1, "ip route add 172.16.2.0/24 via 172.16.1.10")
         self.popen(self.h2, "ip route add 172.16.1.0/24 via 172.16.2.10")
+        # Bridging on the network emulation nodes
+        self.popen(self.e1, "sudo brctl addbr br0")
+        self.popen(self.e1, "sudo brctl addif br0 e1-eth0")
+        self.popen(self.e1, "sudo brctl addif br0 e1-eth1")
+        self.popen(self.e1, "sudo ip link set dev br0 up")
 
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
         bdp = self._calculate_bdp(delay, 0, bw, bw)
         rtt = 2 * delay
-        self._config_iface('h1-eth0', delay, loss, bw, rtt, bdp, qdisc, jitter=jitter)
-        self._config_iface('h2-eth0', delay, loss, bw, rtt, bdp, qdisc, jitter=jitter)
+        self._config_iface('h1-eth0', False)
+        self._config_iface('h2-eth0', False)
+        self._config_iface('e1-eth0', True, delay, loss, bw, bdp, qdisc, jitter=jitter)
+        self._config_iface('e1-eth1', True, delay, loss, bw, bdp, qdisc, jitter=jitter)
