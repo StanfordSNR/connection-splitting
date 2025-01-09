@@ -30,12 +30,16 @@ class TCPTreatment(Treatment):
 
 
 class QUICTreatment(Treatment):
-    def __init__(self, cca: str='cubic'):
+    def __init__(self, cca: str='cubic', label: Optional[str]=None):
         super().__init__(protocol='quic')
         self.cca = cca
+        if label is not None:
+            self._label = label
+        else:
+            self._label = f'{self.protocol}_{self.cca}'
 
     def label(self) -> str:
-        return f'{self.protocol}_{self.cca}'
+        return self._label
 
 class CloudflareQUICTreatment(Treatment):
     def __init__(self, cca: str='cubic', label: Optional[str]=None):
