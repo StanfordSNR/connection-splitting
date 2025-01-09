@@ -32,14 +32,6 @@ cd $SIDEKICK_HOME/deps
 
 Test that `pepsal` is on your path.
 
-Build and install quiche:
-
-```
-cd $SIDEKICK_HOME/deps
-git clone --recursive https://github.com/cloudflare/quiche
-./build_deps.sh 3
-```
-
 ### Generate certificates
 
 Generate certificates using Chromium scripts.
@@ -58,7 +50,7 @@ openssl x509 -noout -pubkey < out/leaf_cert.pem | \
 Check that the files `leaf_cert.pem`, `leaf_cert.pkcs8`, and `leaf_cert.key`
 exist in `deps/certs/out/`.
 
-## QUIC Benchmarks
+## QUIC Benchmarks (Google)
 
 Skip this section if not running QUIC benchmarks. It takes around an hour.
 
@@ -100,6 +92,32 @@ cd $SIDEKICK_HOME/deps/chromium/src
 gn gen out/Default
 ninja -C out/Default quic_server quic_client
 ```
+
+### Generate certificates
+
+See the section on generating certificates under "TCP Benchmarks".
+
+## QUIC Benchmarks (Clodflare)
+
+### Install Rust (if needed)
+
+Install the Rust toolchain (instructions [here](https://www.rust-lang.org/tools/install)):
+
+```
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+### Build and Install Cloudflare QUIC (quiche)
+
+This is a fork of quiche at a new (as of January 2025) tagged release (0.22.0). The quiche library is unchanged, but the sample quiche-server has been modified to expect a URI from the client of the form "/N", where N is the number of bytes it will generate and return.
+
+```
+cd $SIDEKICK_HOME/deps
+git clone --recursive https://github.com/thearossman/quiche.git
+./build_deps.sh 3
+```
+
+Building the repository may take a few minutes.
 
 ### Generate certificates
 

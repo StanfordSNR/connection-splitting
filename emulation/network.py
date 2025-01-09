@@ -134,7 +134,7 @@ class EmulatedNetwork:
 
     def set_tcp_congestion_control(self, cca):
         version = get_linux_version()
-        cmd = f'sudo sysctl -w net.ipv4.tcp_congestion_control={cca}'
+        cmd = f'sysctl -w net.ipv4.tcp_congestion_control={cca}'
         if version == 4.9 or version < 4.15:
             # Setting CCA on Mininet nodes will fail for kernel v4.9-4.14, but they
             # will inherit the CCA setting of the host.
@@ -187,7 +187,8 @@ class EmulatedNetwork:
             return value[0]
 
     def popen(self, host, cmd, background=False, func=None, timeout=None,
-              stdout=False, stderr=True, console_logger=TRACE, logfile=None):
+              stdout=False, stderr=True, console_logger=TRACE, logfile=None,
+              exit_on_err=True):
         """
         Start a process that executes a command on the given mininet host.
         Parameters:
@@ -223,7 +224,8 @@ class EmulatedNetwork:
                 print(p.stderr.strip(), file=sys.stderr)
             if p.returncode != 0:
                 print(f'{cmd} = {p.returncode}', file=sys.stderr)
-                exit(1)
+                if exit_on_err:
+                    exit(1)
             return
 
         # Execute the command on a mininet host in the background
@@ -263,7 +265,8 @@ class EmulatedNetwork:
             return True
         else:
             print(f'{host}({cmd}) = {exitcode}', file=sys.stderr)
-            exit(1)
+            if exit_on_err:
+                exit(1)
 
     def stop(self):
         for p in self.background_processes:
@@ -402,10 +405,10 @@ class DirectNetwork(EmulatedNetwork):
         self.popen(self.h1, "ip route add 172.16.2.0/24 via 172.16.1.10")
         self.popen(self.h2, "ip route add 172.16.1.0/24 via 172.16.2.10")
         # Bridging on the network emulation nodes
-        self.popen(self.e1, "sudo brctl addbr br0")
-        self.popen(self.e1, "sudo brctl addif br0 e1-eth0")
-        self.popen(self.e1, "sudo brctl addif br0 e1-eth1")
-        self.popen(self.e1, "sudo ip link set dev br0 up")
+        self.popen(self.e1, "brctl addbr br0")
+        self.popen(self.e1, "brctl addif br0 e1-eth0")
+        self.popen(self.e1, "brctl addif br0 e1-eth1")
+        self.popen(self.e1, "ip link set dev br0 up")
 
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
