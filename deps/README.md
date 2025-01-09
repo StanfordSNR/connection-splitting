@@ -1,7 +1,12 @@
 # Setup
 
-Build the Linux kernel with [BBRv3](https://github.com/ygina/sidekick-downloads/blob/main/deps/BBRV3.md).
-Install Linux dependencies.
+## Install a Linux kernel, if necessary.
+
+If evaluating TCP BBRv2 or BBRv3, follow the instructions in
+[BBRv3.md](https://github.com/ygina/sidekick-downloads/blob/main/deps/BBRV3.md)
+to install a fork of the Linux kernel with these congestion control modules.
+
+## Install Linux dependencies.
 
 ```
 sudo apt-get update -y
@@ -97,7 +102,7 @@ ninja -C out/Default quic_server quic_client
 
 See the section on generating certificates under "TCP Benchmarks".
 
-## QUIC Benchmarks (Clodflare)
+## QUIC Benchmarks (Cloudflare)
 
 ### Install Rust (if needed)
 
