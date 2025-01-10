@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
+from experiment import TCPTreatment, QUICTreatment, CloudflareQUICTreatment
 
 SIDEKICK_HOME = f'{os.environ["HOME"]}/sidekick-downloads'
 
@@ -18,7 +19,7 @@ PEP_RENO = TCPTreatment(cca='reno', pep=True, label='pep_reno')
 QUIC_CUBIC = QUICTreatment(cca='cubic', label='quic_cubic')
 QUIC_BBRV1 = QUICTreatment(cca='bbr1', label='quic_bbr1')
 QUIC_BBRV3 = QUICTreatment(cca='bbr', label='quic_bbr3')
-QUIC_CUBIC = QUICTreatment(cca='reno', label='quic_reno')
+QUIC_RENO = QUICTreatment(cca='reno', label='quic_reno')
 QUICHE_CUBIC = CloudflareQUICTreatment(cca='cubic', label='quiche_cubic')
 QUICHE_BBRV1 = CloudflareQUICTreatment(cca='bbr', label='quiche_bbr1')
 QUICHE_BBRV2 = CloudflareQUICTreatment(cca='bbr', label='quiche_bbr2')
