@@ -14,6 +14,7 @@ sudo apt-get install -y autoconf libnfnetlink-dev  # pepsal
 sudo apt-get install -y libnss3-tools  # certificates
 sudo apt-get install -y python3-pip mininet  # mininet
 sudo apt-get install -y python3-virtualenv  # plotting
+sudo apt-get install cmake  # cloudflare quiche
 ```
 
 ## TCP Benchmarks
@@ -110,6 +111,7 @@ Install the Rust toolchain (instructions [here](https://www.rust-lang.org/tools/
 
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+. "$HOME/.cargo/env"
 ```
 
 ### Build and Install Cloudflare QUIC (quiche)
