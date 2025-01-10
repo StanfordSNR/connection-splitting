@@ -25,6 +25,9 @@ QUICHE_BBRV1 = CloudflareQUICTreatment(cca='bbr', label='quiche_bbr1')
 QUICHE_BBRV2 = CloudflareQUICTreatment(cca='bbr', label='quiche_bbr2')
 QUICHE_RENO = CloudflareQUICTreatment(cca='reno', label='quiche_reno')
 
+def get_data_size(bottleneck_bw):
+    return int(10*1000000*bottleneck_bw/8)  # 10s at the bottleneck bandwidth
+
 def data_size_str(data_size):
     if data_size < 1e3:
         return f'{data_size}B'
