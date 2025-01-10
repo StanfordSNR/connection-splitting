@@ -13,6 +13,7 @@ from common import SIDEKICK_HOME
 from experiment import Treatment, NetworkSetting, DirectNetworkSetting, Experiment
 
 DEFAULT_DATA_HOME = f'{SIDEKICK_HOME}/data'
+NUM_TIMEOUTS_THRESHOLD = 2
 
 
 class RawDataFile:
@@ -383,7 +384,7 @@ class DirectRawData(RawDataParser, RawDataExecutor):
             for output in outputs:
                 if 'timeout' in output and output['timeout']:
                     num_timeouts += 1
-            if num_timeouts >= (self.exp.num_trials + 1) // 2:
+            if num_timeouts >= NUM_TIMEOUTS_THRESHOLD:
                 continue
 
             # If there are any trials remaining, then execute the data point
