@@ -13,7 +13,6 @@ from common import SIDEKICK_HOME
 from experiment import Treatment, NetworkSetting, DirectNetworkSetting, Experiment
 
 DEFAULT_DATA_HOME = f'{SIDEKICK_HOME}/data'
-NUM_TIMEOUTS_THRESHOLD = 2
 
 
 class RawDataFile:
@@ -317,6 +316,7 @@ class DirectRawData(RawDataParser, RawDataExecutor):
         exp: Experiment,
         execute=False,
         max_retries=10,
+        max_num_timeouts=1,
         data_suffix: str='',
     ):
         """Parameters:
@@ -338,7 +338,8 @@ class DirectRawData(RawDataParser, RawDataExecutor):
             treatments = self.exp.get_treatments()
             missing_data = []
             for treatment in treatments:
-                missing_data += self._find_missing_data(treatment)
+                missing_data += self._find_missing_data(
+                    treatment, max_num_timeouts)
             if len(missing_data) == 0 or not execute:
                 break
             self._collect_missing_data(missing_data)
@@ -350,7 +351,7 @@ class DirectRawData(RawDataParser, RawDataExecutor):
             print('MISSING:', file.cmd(data_size, num_missing, exp.timeout))
 
     def _find_missing_data(
-        self, treatment: Treatment,
+        self, treatment: Treatment, max_num_timeouts: int,
     ) -> List[Tuple[RawDataFile, int, int]]:
         missing_data = []
         treatment_data = self.data[treatment.label()]
@@ -384,7 +385,7 @@ class DirectRawData(RawDataParser, RawDataExecutor):
             for output in outputs:
                 if 'timeout' in output and output['timeout']:
                     num_timeouts += 1
-            if num_timeouts >= NUM_TIMEOUTS_THRESHOLD:
+            if num_timeouts >= max_num_timeouts:
                 continue
 
             # If there are any trials remaining, then execute the data point
