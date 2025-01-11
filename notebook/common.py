@@ -42,6 +42,9 @@ plt_label = {
     'quiche_bbr1': 'Cloudflare QUIC BBRv1',
     'quiche_bbr2': 'Cloudflare QUIC BBRv2',
     'quiche_reno': 'Cloudflare QUIC Reno',
+    'picoquic_cubic': 'Picoquic QUIC CUBIC',
+    'picoquic_bbr1': 'Picoquic QUIC BBRv1',
+    'picoquic_bbr3': 'Picoquic QUIC BBRv3',
 }
 
 def get_data_size(bottleneck_bw):

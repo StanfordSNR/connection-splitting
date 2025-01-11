@@ -3,6 +3,8 @@ help() {
 	echo "USAGE: $0 [all|0|1]"
 	echo "1 = pepsal"
 	echo "2 = chromium"
+	echo "3 = quiche"
+	echo "4 = picoquic"
 	exit 1
 }
 
