@@ -130,9 +130,8 @@ class PicoQUICBenchmark(BaseBenchmark):
               f'{self.server_ip} '\
               f'4433 '\
               f'/tmp '\
-              f'{self.n}.html '\
-              f'{self.cca}'
-
+              f'{self.cca} '\
+              f'{self.n}.html '
         if timeout is None:
             DEBUG(f'{self.net.h1.name} {cmd}')
             output = self.net.h1.cmd(cmd)
@@ -151,6 +150,7 @@ class PicoQUICBenchmark(BaseBenchmark):
             except:
                 pass
 
+        print(output)
         for line in output.split('\n'):
             parse_result(line)
 
