@@ -129,3 +129,21 @@ Building the repository may take a few minutes.
 ### Generate certificates
 
 See the section on generating certificates under "TCP Benchmarks".
+
+## QUIC Benchmarks (PicoQUIC)
+
+### Build and Install PicoQUIC
+
+This is a fork of picoquic on the main branch as of January 2024. The picoquic library is unchanged, but the sample server has been modified to always return N bytes, regardless of the client request, where N is an argument provided by the CLI.
+
+```
+cd $SIDEKICK_HOME/deps
+git clone --recursive https://github.com/thearossman/picoquic
+./build_deps.sh 4
+```
+
+Building the repository may take a few minutes.
+
+### Generate certificates
+
+See the section on generating certificates under "TCP Benchmarks".

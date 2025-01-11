@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
-from experiment import TCPTreatment, QUICTreatment, CloudflareQUICTreatment
+from experiment import TCPTreatment, QUICTreatment, CloudflareQUICTreatment, PicoQUICTreatment
 
 SIDEKICK_HOME = f'{os.environ["HOME"]}/sidekick-downloads'
 
@@ -24,6 +24,9 @@ QUICHE_CUBIC = CloudflareQUICTreatment(cca='cubic', label='quiche_cubic')
 QUICHE_BBRV1 = CloudflareQUICTreatment(cca='bbr', label='quiche_bbr1')
 QUICHE_BBRV2 = CloudflareQUICTreatment(cca='bbr', label='quiche_bbr2')
 QUICHE_RENO = CloudflareQUICTreatment(cca='reno', label='quiche_reno')
+PICOQUIC_CUBIC = PicoQUICTreatment(cca='cubic', label='picoquic_cubic')
+PICOQUIC_BBRV1 = PicoQUICTreatment(cca='bbr1', label='picoquic_bbr1')
+PICOQUIC_BBRV3 = PicoQUICTreatment(cca='bbr', label='picoquic_bbr3')
 
 plt_label = {
     'tcp_cubic': 'TCP CUBIC',
@@ -39,6 +42,9 @@ plt_label = {
     'quiche_bbr1': 'Cloudflare QUIC BBRv1',
     'quiche_bbr2': 'Cloudflare QUIC BBRv2',
     'quiche_reno': 'Cloudflare QUIC Reno',
+    'picoquic_cubic': 'Picoquic QUIC CUBIC',
+    'picoquic_bbr1': 'Picoquic QUIC BBRv1',
+    'picoquic_bbr3': 'Picoquic QUIC BBRv3',
 }
 
 def get_data_size(bottleneck_bw):

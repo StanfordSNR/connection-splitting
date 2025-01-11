@@ -14,6 +14,7 @@ class Protocol(Enum):
     TCP = 1
     TCP_IPERF3 = 2
     CloudflareQUIC = 3
+    PicoQUIC = 4
 
 
 class BenchmarkResult:
@@ -70,6 +71,152 @@ class BaseBenchmark:
 
     def start_sidekick(self):
         pass
+
+class PicoQUICBenchmark(BaseBenchmark):
+    def __init__(self, net, n: str, cca: str, certfile=None, keyfile=None):
+        super().__init__(net)
+        self.n = n
+        self.cca = cca
+        self.server_ip = self.net.h2.IP()
+        self.certfile = certfile
+        self.keyfile = keyfile
+
+    def restart_server(self, logfile):
+        WARN('Restarting picoquic-server')
+        self.net.h2.cmd('killall picoquic_sample')
+        self.start_server(logfile=logfile)
+
+    def start_server(self, logfile):
+        base = 'deps/picoquic'
+        cmd = f'./{base}/picoquic_sample '\
+              f'server '\
+              f'4433 '\
+              f'{self.certfile} '\
+              f'{self.keyfile} '\
+              f'. '\
+              f'{self.n} '\
+              f'{self.cca}'
+
+        DEBUG(f'{self.net.h2.name} {cmd}')
+        self.net.h2.cmd(cmd + ' &')
+        time.sleep(2)
+
+        '''
+        TODO FIGURE OUT WHY POPEN ISN'T STARTING for picoquic
+        condition = threading.Condition()
+        def notify_when_ready(line):
+            if 'serving' in line.lower():
+                with condition:
+                    condition.notify()
+
+        # The start_server() function blocks until the server is ready to
+        # accept client requests. That is, when we observe the 'Serving'
+        # string in the server output.
+        self.net.popen(self.net.h2, cmd, background=True,
+            console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
+        with condition:
+            notified = condition.wait(timeout=SETUP_TIMEOUT)
+            if not notified:
+                WARN("Server did not print expected output; continuing anyway")
+                # raise TimeoutError(f'start_server timeout {SETUP_TIMEOUT}s')
+        '''
+
+    def run_client(self, logfile, timeout) -> Optional[Tuple[int, float]]:
+        """Returns the status code and runtime (seconds) of the GET request.
+        """
+        base = 'deps/picoquic'
+        cmd = f'./{base}/picoquic_sample '\
+              f'client '\
+              f'{self.server_ip} '\
+              f'4433 '\
+              f'/tmp '\
+              f'{self.cca} '\
+              f'{self.n}.html '
+        if timeout is None:
+            DEBUG(f'{self.net.h1.name} {cmd}')
+            output = self.net.h1.cmd(cmd)
+        else:
+            DEBUG(f'{self.net.h1.name} timeout {timeout} {cmd}')
+            output = self.net.h1.cmd(f"timeout {timeout} {cmd}")
+
+        result = []
+        def parse_result(line):
+            if 'complete' not in line:
+                return
+            try:
+                match = re.search(r'\d+\.\d+ seconds', line).group(0)
+                time_s = float(match.split(' ')[0])
+                result.append(time_s)
+            except:
+                pass
+
+        print(output)
+        for line in output.split('\n'):
+            parse_result(line)
+
+        # TODO figure out why popen isn't working
+        # timeout_flag = self.net.popen(self.net.h1, cmd, background=False,
+        #     console_logger=DEBUG, logfile=logfile, func=parse_result,
+        #     timeout=timeout, exit_on_err=False)
+
+        if len(result) == 0:
+            WARN('PicoQUIC client failed to return result')
+        elif len(result) > 1:
+            WARN(f'PicoQUIC client returned multiple results {result}')
+        else:
+            return (HTTP_OK_STATUSCODE, result[0])
+
+    def run(self, label, logdir, num_trials, timeout, network_statistics):
+
+        # Start the server
+        self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
+
+        # Initialize remaining trials
+        num_trials_left = num_trials
+        # allow N "no output" errors without decrementing trials
+        num_errors_left = num_trials
+
+        # Run the client
+        while num_trials_left > 0:
+            result = BenchmarkResult(
+                label=label,
+                protocol=Protocol.PicoQUIC,
+                data_size=self.n,
+                cca=self.cca,
+                pep=False,
+            )
+
+            # Log output every LOG_CHUNK_TIME while continuing to run trials
+            total_time_s = 0
+            while num_trials_left > 0 and total_time_s < LOG_CHUNK_TIME:
+                result.append_new_output()
+                self.net.reset_statistics()
+                output = self.run_client(
+                    logfile=f'{logdir}/{CLIENT_LOGFILE}',
+                    timeout=timeout,
+                )
+
+                # Error
+                if output is None:
+                    ERROR('no output')
+                    self.restart_server(f'{logdir}/{SERVER_LOGFILE}')
+                    num_errors_left -= 1
+                    if num_errors_left == 0:
+                        num_trials_left = 0
+                    continue
+
+                # Success
+                if network_statistics:
+                    statistics = self.net.snapshot_statistics()
+                    result.set_network_statistics(statistics)
+                status_code, time_s = output
+                result.set_success(status_code == HTTP_OK_STATUSCODE)
+                result.set_timeout(status_code == HTTP_TIMEOUT_STATUSCODE)
+                result.set_time_s(time_s)
+
+                total_time_s += time_s
+                num_trials_left -= 1
+            result.print()
 
 class CloudflareQUICBenchmark(BaseBenchmark):
     def __init__(self, net, n: str, cca: str, certfile=None, keyfile=None):

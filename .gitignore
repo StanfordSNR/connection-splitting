@@ -17,9 +17,12 @@ data/
 
 results/
 *.log
+*.qlog
+*.bin
 deps/certs/out/
 deps/pepsal*
 deps/quiche*
 deps/content*
 deps/depot_tools/
 deps/chromium/
+deps/picoquic/

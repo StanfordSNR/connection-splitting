@@ -53,6 +53,18 @@ class CloudflareQUICTreatment(Treatment):
     def label(self) -> str:
         return self._label
 
+class PicoQUICTreatment(Treatment):
+    def __init__(self, cca: str='cubic', label: Optional[str]=None):
+        super().__init__(protocol='picoquic')
+        self.cca = cca
+        if label is not None:
+            self._label = label
+        else:
+            self._label = f'{self.protocol}_{self.cca}'
+
+    def label(self) -> str:
+        return self._label
+
 class TCPIperf3Treatment(Treatment):
     def __init__(self, cca: str='cubic', pep: bool=False,
                  label: Optional[str]=None):
