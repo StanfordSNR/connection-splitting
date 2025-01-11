@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
-from experiment import TCPTreatment, QUICTreatment, CloudflareQUICTreatment
+from experiment import TCPTreatment, QUICTreatment, CloudflareQUICTreatment, PicoQUICTreatment
 
 SIDEKICK_HOME = f'{os.environ["HOME"]}/sidekick-downloads'
 
@@ -24,6 +24,9 @@ QUICHE_CUBIC = CloudflareQUICTreatment(cca='cubic', label='quiche_cubic')
 QUICHE_BBRV1 = CloudflareQUICTreatment(cca='bbr', label='quiche_bbr1')
 QUICHE_BBRV2 = CloudflareQUICTreatment(cca='bbr', label='quiche_bbr2')
 QUICHE_RENO = CloudflareQUICTreatment(cca='reno', label='quiche_reno')
+PICOQUIC_CUBIC = PicoQUICTreatment(cca='cubic', label='picoquic_cubic')
+PICOQUIC_BBRV1 = PicoQUICTreatment(cca='bbr1', label='picoquic_bbr1')
+PICOQUIC_BBRV3 = PicoQUICTreatment(cca='bbr', label='picoquic_bbr3')
 
 def get_data_size(bottleneck_bw):
     return int(10*1000000*bottleneck_bw/8)  # 10s at the bottleneck bandwidth
