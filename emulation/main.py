@@ -278,12 +278,22 @@ if __name__ == '__main__':
         help='Enable PEPsal, a connection-splitting TCP PEP')
 
     args = parser.parse_args()
+
+    # Some BBR implementations require pacing.
+    # This includes Cloudflare quiche and Linux kernel versions <5.0.
+    # We automatically set pacing for Linux TCP BBR, but we need to set it
+    # here for user-space implementations.
+    if args.benchmark == benchmark_quiche and 'bbr' in args.congestion_control:
+        pacing = True
+    else:
+        pacing = False
+
     if args.topology == 'one_hop':
         net = OneHopNetwork(args.delay1, args.delay2, args.loss1, args.loss2,
-            args.bw1, args.bw2, args.jitter1, args.jitter2, args.qdisc)
+            args.bw1, args.bw2, args.jitter1, args.jitter2, args.qdisc, pacing)
     elif args.topology == 'direct':
         net = DirectNetwork(args.delay1, args.loss1, args.bw1, args.jitter1,
-            args.qdisc)
+            args.qdisc, pacing)
     else:
         raise NotImplementedError(args.topology)
 

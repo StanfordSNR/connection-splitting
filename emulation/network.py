@@ -35,7 +35,7 @@ class EmulatedNetwork:
         bw_mbps = min(bw1, bw2)
         return rtt_ms * bw_mbps * 1000000. / 1000. / 8.
 
-    def _config_iface(self, iface, netem: bool,
+    def _config_iface(self, iface, netem: bool, pacing: bool=False,
                       delay=None, loss=None, bw=None, bdp=None, qdisc=None,
                       gso=True, tso=True, jitter=None):
         """Configures the given interface <iface>:
@@ -53,7 +53,7 @@ class EmulatedNetwork:
             # BBR requires fq (with pacing) for kernel versions <v4.20
             # https://groups.google.com/g/bbr-dev/c/zZ5c0qkWqbo/m/QulUwXLZAQAJ
             linux_version = get_linux_version()
-            if linux_version < 5.0:
+            if pacing or linux_version < 5.0:
                 self.popen(host, f'tc qdisc add dev {iface} root handle 2: '\
                                 f'fq pacing', console_logger=DEBUG)
             return
@@ -306,7 +306,8 @@ and the router (r1), and the 2nd link is between the router (r1) and the
 server / data sender (h2).
 """
 class OneHopNetwork(EmulatedNetwork):
-    def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2, jitter1, jitter2, qdisc):
+    def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2, jitter1, jitter2,
+                 qdisc, pacing):
         super().__init__()
 
         # Add hosts, switches, and network emulation nodes
@@ -367,10 +368,10 @@ class OneHopNetwork(EmulatedNetwork):
         self._config_iface('r1-eth0', False)
         self._config_iface('r1-eth1', False)
         self._config_iface('h2-eth0', False)
-        self._config_iface('e1-eth0', True, delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
-        self._config_iface('e1-eth1', True, delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
-        self._config_iface('e2-eth0', True, delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
-        self._config_iface('e2-eth1', True, delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
+        self._config_iface('e1-eth0', True, pacing, delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
+        self._config_iface('e1-eth1', True, pacing, delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
+        self._config_iface('e2-eth0', True, pacing, delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
+        self._config_iface('e2-eth1', True, pacing, delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
 
 
 """
@@ -378,7 +379,7 @@ Defines an emulated network in mininet that directly connects the client /
 data receiver (h1) to the server / data sender (h2) with a single link.
 """
 class DirectNetwork(EmulatedNetwork):
-    def __init__(self, delay, loss, bw, jitter, qdisc):
+    def __init__(self, delay, loss, bw, jitter, qdisc, pacing):
         super().__init__()
 
         # Add hosts and switches
@@ -416,5 +417,5 @@ class DirectNetwork(EmulatedNetwork):
         rtt = 2 * delay
         self._config_iface('h1-eth0', False)
         self._config_iface('h2-eth0', False)
-        self._config_iface('e1-eth0', True, delay, loss, bw, bdp, qdisc, jitter=jitter)
-        self._config_iface('e1-eth1', True, delay, loss, bw, bdp, qdisc, jitter=jitter)
+        self._config_iface('e1-eth0', True, pacing, delay, loss, bw, bdp, qdisc, jitter=jitter)
+        self._config_iface('e1-eth1', True, pacing, delay, loss, bw, bdp, qdisc, jitter=jitter)
