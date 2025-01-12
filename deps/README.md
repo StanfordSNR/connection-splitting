@@ -14,7 +14,8 @@ sudo apt-get install -y autoconf libnfnetlink-dev  # pepsal
 sudo apt-get install -y libnss3-tools  # certificates
 sudo apt-get install -y python3-pip mininet  # mininet
 sudo apt-get install -y python3-virtualenv  # plotting
-sudo apt-get install cmake  # cloudflare quiche
+sudo apt-get install -y cmake  # cloudflare quiche
+sudo apt-get install -y libssl-dev  # picoquic
 ```
 
 ## TCP Benchmarks
