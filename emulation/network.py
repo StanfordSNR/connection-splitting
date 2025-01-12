@@ -364,14 +364,14 @@ class OneHopNetwork(EmulatedNetwork):
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
         rtt = 2 * (delay1 + delay2)
         bdp = self._calculate_bdp(delay1, delay2, bw1, bw2)
-        self._config_iface('h1-eth0', False)
-        self._config_iface('r1-eth0', False)
-        self._config_iface('r1-eth1', False)
-        self._config_iface('h2-eth0', False)
-        self._config_iface('e1-eth0', True, pacing, delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
-        self._config_iface('e1-eth1', True, pacing, delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
-        self._config_iface('e2-eth0', True, pacing, delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
-        self._config_iface('e2-eth1', True, pacing, delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
+        self._config_iface('h1-eth0', False, pacing)
+        self._config_iface('r1-eth0', False, pacing)
+        self._config_iface('r1-eth1', False, pacing)
+        self._config_iface('h2-eth0', False, pacing)
+        self._config_iface('e1-eth0', True, False, delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
+        self._config_iface('e1-eth1', True, False, delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
+        self._config_iface('e2-eth0', True, False, delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
+        self._config_iface('e2-eth1', True, False, delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
 
 
 """
@@ -415,7 +415,7 @@ class DirectNetwork(EmulatedNetwork):
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
         bdp = self._calculate_bdp(delay, 0, bw, bw)
         rtt = 2 * delay
-        self._config_iface('h1-eth0', False)
-        self._config_iface('h2-eth0', False)
-        self._config_iface('e1-eth0', True, pacing, delay, loss, bw, bdp, qdisc, jitter=jitter)
-        self._config_iface('e1-eth1', True, pacing, delay, loss, bw, bdp, qdisc, jitter=jitter)
+        self._config_iface('h1-eth0', False, pacing)
+        self._config_iface('h2-eth0', False, pacing)
+        self._config_iface('e1-eth0', True, False, delay, loss, bw, bdp, qdisc, jitter=jitter)
+        self._config_iface('e1-eth1', True, False, delay, loss, bw, bdp, qdisc, jitter=jitter)
