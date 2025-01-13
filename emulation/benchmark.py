@@ -161,6 +161,11 @@ class PicoQUICBenchmark(BaseBenchmark):
 
         if len(result) == 0:
             WARN('PicoQUIC client failed to return result')
+            if timeout is not None:
+                WARN('assuming picoquic timeout')
+                return (HTTP_TIMEOUT_STATUSCODE, timeout)
+            else:
+                return None
         elif len(result) > 1:
             WARN(f'PicoQUIC client returned multiple results {result}')
         else:
