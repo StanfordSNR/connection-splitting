@@ -13,7 +13,7 @@ DEFAULT_SSL_KEYFILE_QUIC = f'deps/certs/out/leaf_cert.pkcs8'
 DEFAULT_SSL_KEYFILE_TCP = f'deps/certs/out/leaf_cert.key'
 
 
-def benchmark_http1(net, args):
+def benchmark_tcp(net, args):
     assert not (args.topology == 'direct' and args.pep)
     bm = TCPBenchmark(
         net,
@@ -32,7 +32,7 @@ def benchmark_http1(net, args):
     )
 
 
-def benchmark_http3(net, args):
+def benchmark_google(net, args):
     bm = QUICBenchmark(
         net,
         args.n,
@@ -48,7 +48,7 @@ def benchmark_http3(net, args):
         args.network_statistics,
     )
 
-def benchmark_quiche(net, args):
+def benchmark_cloudflare(net, args):
     bm = CloudflareQUICBenchmark(
         net,
         args.n,
@@ -78,26 +78,6 @@ def benchmark_picoquic(net, args):
         args.trials,
         args.timeout,
         args.network_statistics,
-    )
-
-
-def benchmark_webrtc():
-    pass
-
-def benchmark_iperf3(net, args):
-    bm = Iperf3Benchmark(
-        net,
-        args.n,
-        cca=args.congestion_control,
-        pep=args.pep
-    )
-    bm.run(
-        args.label,
-        args.logdir,
-        args.trials,
-        args.timeout,
-        args.network_statistics,
-        args.additional_data
     )
 
 def parse_data_size(n):
@@ -143,6 +123,8 @@ if __name__ == '__main__':
         choices=['one_hop', 'direct'], default='one_hop',
         help='Network topology to use. If "direct", uses the network path '\
              'properties for the "near path segment" i.e. Link 1.')
+    exp_config.add_argument('--pep', action='store_true',
+        help='Enable PEPsal, a connection-splitting TCP PEP')
 
     ###########################################################################
     # Network Configurations
@@ -178,15 +160,13 @@ if __name__ == '__main__':
         'tcp',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    tcp.set_defaults(ty='benchmark', benchmark=benchmark_http1)
+    tcp.set_defaults(ty='benchmark', benchmark=benchmark_tcp)
     tcp.add_argument('-n', type=parse_data_size, default=1000000,
         help='Number of bytes to download in the HTTP/1.1 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
     tcp.add_argument('-cca', '--congestion-control',
         choices=['reno', 'cubic', 'bbr', 'bbr2'], default='cubic',
         help='Congestion control algorithm at endpoints')
-    tcp.add_argument('--pep', action='store_true',
-        help='Enable PEPsal, a connection-splitting TCP PEP')
     tcp.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
         help='Path to SSL certificate')
     tcp.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_TCP,
@@ -195,39 +175,39 @@ if __name__ == '__main__':
     ###########################################################################
     # HTTP/3+QUIC benchmark
     ###########################################################################
-    quic = subparsers.add_parser(
-        'quic',
+    google = subparsers.add_parser(
+        'google',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    quic.set_defaults(ty='benchmark', benchmark=benchmark_http3)
-    quic.add_argument('-n', type=parse_data_size, default=1000000,
+    google.set_defaults(ty='benchmark', benchmark=benchmark_google)
+    google.add_argument('-n', type=parse_data_size, default=1000000,
         help='Number of bytes to download in the HTTP/3 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
-    quic.add_argument('-cca', '--congestion-control',
+    google.add_argument('-cca', '--congestion-control',
         choices=['cubic', 'reno', 'bbr1', 'bbr'], default='cubic',
         help='Congestion control algorithm at endpoints')
-    quic.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
+    google.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
         help='Path to SSL certificate')
-    quic.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_QUIC,
+    google.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_QUIC,
         help='Path to SSL key')
 
     ###########################################################################
     # HTTP/3+Cloudflare QUIC benchmark
     ###########################################################################
-    quiche = subparsers.add_parser(
-        'quiche',
+    cloudflare = subparsers.add_parser(
+        'cloudflare',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    quiche.set_defaults(ty='benchmark', benchmark=benchmark_quiche)
-    quiche.add_argument('-n', type=parse_data_size, default=1000000,
+    cloudflare.set_defaults(ty='benchmark', benchmark=benchmark_cloudflare)
+    cloudflare.add_argument('-n', type=parse_data_size, default=1000000,
         help='Number of bytes to download in the HTTP/3 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
-    quiche.add_argument('-cca', '--congestion-control',
+    cloudflare.add_argument('-cca', '--congestion-control',
         choices=['cubic', 'reno', 'bbr2', 'bbr'], default='cubic',
         help='Congestion control algorithm at endpoints')
-    quiche.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
+    cloudflare.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
         help='Path to SSL certificate')
-    quiche.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_TCP,
+    cloudflare.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_TCP,
         help='Path to SSL key')
 
     ###########################################################################
@@ -249,41 +229,13 @@ if __name__ == '__main__':
     picoquic.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_TCP,
         help='Path to SSL key')
 
-    ###########################################################################
-    # WebRTC benchmark
-    ###########################################################################
-    webrtc = subparsers.add_parser(
-        'webrtc',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    webrtc.set_defaults(ty='benchmark', benchmark=benchmark_webrtc)
-
-    ###########################################################################
-    # Iperf3 + TCP Benchmark
-    ###########################################################################
-    iperf3 = subparsers.add_parser(
-        'iperf3',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    iperf3.set_defaults(ty='benchmark', benchmark=benchmark_iperf3)
-    iperf3.add_argument('--additional_data', action='store_true',
-                        help='Include full iperf3 json output in results')
-    iperf3.add_argument('-n', type=parse_data_size, default=1000000,
-        help='Number of bytes to transfer via iperf3, '\
-             'e.g., 1000, 1K, 1M, 1000000, 1G')
-    iperf3.add_argument('-cca', '--congestion-control',
-        choices=['cubic', 'bbr'], default='cubic',
-        help='Congestion control algorithm at endpoints')
-    iperf3.add_argument('--pep', action='store_true',
-        help='Enable PEPsal, a connection-splitting TCP PEP')
-
     args = parser.parse_args()
 
     # Some BBR implementations require pacing.
     # This includes Cloudflare quiche and Linux kernel versions <5.0.
     # We automatically set pacing for Linux TCP BBR, but we need to set it
     # here for user-space implementations.
-    if args.benchmark == benchmark_quiche and 'bbr' in args.congestion_control:
+    if args.benchmark == benchmark_cloudflare and 'bbr' in args.congestion_control:
         pacing = True
     else:
         pacing = False
