@@ -1,79 +1,10 @@
 import argparse
-import sys
-import time
 from common import *
 from network import *
 from benchmark import *
 from mininet.cli import CLI
 from mininet.log import setLogLevel
 
-
-def benchmark_tcp(net, args):
-    assert not (args.topology == 'direct' and args.pep)
-    bm = TCPBenchmark(
-        net,
-        args.n,
-        cca=args.congestion_control,
-        pep=args.pep,
-        certfile=args.certfile,
-        keyfile=args.keyfile,
-    )
-    bm.run(
-        args.label,
-        args.logdir,
-        args.trials,
-        args.timeout,
-        args.network_statistics,
-    )
-
-
-def benchmark_google(net, args):
-    bm = QUICBenchmark(
-        net,
-        args.n,
-        cca=args.congestion_control,
-        certfile=args.certfile,
-        keyfile=args.keyfile,
-    )
-    bm.run(
-        args.label,
-        args.logdir,
-        args.trials,
-        args.timeout,
-        args.network_statistics,
-    )
-
-def benchmark_cloudflare(net, args):
-    bm = CloudflareQUICBenchmark(
-        net,
-        args.n,
-        cca=args.congestion_control,
-        certfile=args.certfile,
-        keyfile=args.keyfile,
-    )
-    bm.run(
-        args.label,
-        args.logdir,
-        args.trials,
-        args.timeout,
-        args.network_statistics,
-    )
-
-def benchmark_picoquic(net, args):
-    bm = PicoQUICBenchmark(
-        net,
-        args.n,
-        cca=args.congestion_control,
-        certfile=args.certfile,
-        keyfile=args.keyfile,
-    )
-    bm.run(
-        args.label,
-        args.logdir,
-        args.trials,
-        args.timeout,
-        args.network_statistics,
-    )
 
 if __name__ == '__main__':
     setLogLevel('info')
@@ -134,7 +65,7 @@ if __name__ == '__main__':
         'tcp',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    tcp.set_defaults(ty='benchmark', benchmark=benchmark_tcp)
+    tcp.set_defaults(ty='benchmark', constructor=LinuxTCPBenchmark)
     tcp.add_argument('-n', type=parse_data_size, default=10000,
         help='Number of bytes to download in the HTTP/1.1 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
@@ -153,7 +84,7 @@ if __name__ == '__main__':
         'google',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    google.set_defaults(ty='benchmark', benchmark=benchmark_google)
+    google.set_defaults(ty='benchmark', constructor=GoogleQUICBenchmark)
     google.add_argument('-n', type=parse_data_size, default=10000,
         help='Number of bytes to download in the HTTP/3 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
@@ -172,7 +103,7 @@ if __name__ == '__main__':
         'cloudflare',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    cloudflare.set_defaults(ty='benchmark', benchmark=benchmark_cloudflare)
+    cloudflare.set_defaults(ty='benchmark', constructor=CloudflareQUICBenchmark)
     cloudflare.add_argument('-n', type=parse_data_size, default=10000,
         help='Number of bytes to download in the HTTP/3 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
@@ -191,7 +122,7 @@ if __name__ == '__main__':
         'picoquic',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    picoquic.set_defaults(ty='benchmark', benchmark=benchmark_picoquic)
+    picoquic.set_defaults(ty='benchmark', constructor=PicoQUICBenchmark)
     picoquic.add_argument('-n', type=parse_data_size, default=10000,
         help='Number of bytes to download in the HTTP/3 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
@@ -209,7 +140,7 @@ if __name__ == '__main__':
     # This includes Cloudflare quiche and Linux kernel versions <5.0.
     # We automatically set pacing for Linux TCP BBR, but we need to set it
     # here for user-space implementations.
-    if args.benchmark == benchmark_cloudflare and 'bbr' in args.congestion_control:
+    if args.constructor == CloudflareQUICBenchmark and 'bbr' in args.congestion_control:
         pacing = True
     else:
         pacing = False
@@ -231,6 +162,20 @@ if __name__ == '__main__':
             CLI(net.net)
         else:
             init_logdir(args.logdir)
-            args.benchmark(net, args)
+            bm = args.constructor(
+                net,
+                args.label,
+                args.logdir,
+                args.n,
+                cca=args.congestion_control,
+                certfile=args.certfile,
+                keyfile=args.keyfile,
+                pep=args.pep,
+            )
+            bm.run(
+                args.trials,
+                args.timeout,
+                args.network_statistics,
+            )
     finally:
         net.stop()

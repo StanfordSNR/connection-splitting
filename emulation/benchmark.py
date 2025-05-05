@@ -1,25 +1,60 @@
+from abc import ABC, abstractmethod
 import time
 import threading
 from typing import Optional, Tuple
 import re
 
 from common import *
+from network import EmulatedNetwork
 from result import BenchmarkResult
 
 
-class BaseBenchmark:
-    def __init__(self, net):
+class Benchmark(ABC):
+    def __init__(
+        self, net: EmulatedNetwork, protocol: Protocol, label: str,
+        logdir: str, n: str, cca: str, certfile: str, keyfile: str, pep: bool,
+    ):
+        """
+        File download benchmark where the HTTP client on the h1 host requests
+        a certain number of application-layer bytes from the HTTP server on
+        the h2 host. Reports metrics such as the request latency and throughput.
+
+        Subclasses of Benchmark must call this constructor.
+
+        Parameters:
+        - net: The mininet network to run the benchmark on. Requires an h1 and
+          h2 host, and a p1 host if a proxy is configured.
+        - protocol: The transport protocol implementation.
+        - label: The unique label to associate with this configuration.
+        - logdir: Path to a log directory (that already exists). The logs are
+          written to the SERVER_LOGFILE, CLIENT_LOGFILE, and ROUTER_LOGFILE
+          files in this directory, as defined in common.py.
+        - n: The data size, in bytes, transferred in the
+          application-layer data of the GET request. Excludes HTTP headers.
+        - cca: The congestion control algorithm used in the transport protocol.
+        - certfile: Path to the TLS/SSL certificate file.
+        - keyfile: Path to the TLS/SSL key file.
+        - pep: Whether to start a TCP connection-splitting PEP on p1.
+        """
         self.net = net
-
-
-class PicoQUICBenchmark(BaseBenchmark):
-    def __init__(self, net, n: str, cca: str, certfile=None, keyfile=None):
-        super().__init__(net)
+        self.protocol = protocol
+        self.label = label
+        self.logdir = logdir
         self.n = n
         self.cca = cca
-        self.server_ip = self.net.h2.IP()
         self.certfile = certfile
         self.keyfile = keyfile
+        self.pep = pep
+
+
+class PicoQUICBenchmark(Benchmark):
+    def __init__(
+        self, net: EmulatedNetwork, label: str, logdir: str, n: str,
+        cca: str, certfile: str, keyfile: str, pep: bool=False,
+    ):
+        super().__init__(net, Protocol.PICOQUIC, label, logdir, n, cca,
+                         certfile, keyfile, pep)
+        self.server_ip = self.net.h2.IP()
 
     def restart_server(self, logfile):
         WARN('Restarting picoquic-server')
@@ -111,10 +146,10 @@ class PicoQUICBenchmark(BaseBenchmark):
         else:
             return (HTTP_OK_STATUSCODE, result[0])
 
-    def run(self, label, logdir, num_trials, timeout, network_statistics):
+    def run(self, num_trials, timeout, network_statistics):
 
         # Start the server
-        self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
+        self.start_server(logfile=f'{self.logdir}/{SERVER_LOGFILE}')
 
         # Initialize remaining trials
         num_trials_left = num_trials
@@ -124,8 +159,8 @@ class PicoQUICBenchmark(BaseBenchmark):
         # Run the client
         while num_trials_left > 0:
             result = BenchmarkResult(
-                label=label,
-                protocol=Protocol.PICOQUIC,
+                label=self.label,
+                protocol=self.protocol,
                 data_size=self.n,
                 cca=self.cca,
                 pep=False,
@@ -137,14 +172,14 @@ class PicoQUICBenchmark(BaseBenchmark):
                 result.append_new_output()
                 self.net.reset_statistics()
                 output = self.run_client(
-                    logfile=f'{logdir}/{CLIENT_LOGFILE}',
+                    logfile=f'{self.logdir}/{CLIENT_LOGFILE}',
                     timeout=timeout,
                 )
 
                 # Error
                 if output is None:
                     ERROR('no output')
-                    self.restart_server(f'{logdir}/{SERVER_LOGFILE}')
+                    self.restart_server(f'{self.logdir}/{SERVER_LOGFILE}')
                     num_errors_left -= 1
                     if num_errors_left == 0:
                         num_trials_left = 0
@@ -163,14 +198,12 @@ class PicoQUICBenchmark(BaseBenchmark):
                 num_trials_left -= 1
             result.print()
 
-class CloudflareQUICBenchmark(BaseBenchmark):
-    def __init__(self, net, n: str, cca: str, certfile=None, keyfile=None):
-        super().__init__(net)
-        self.n = n
-        self.cca = cca
+class CloudflareQUICBenchmark(Benchmark):
+    def __init__(self, net: EmulatedNetwork, label: str, logdir: str, n: str,
+                 cca: str, certfile: str, keyfile: str, pep: bool=False):
+        super().__init__(net, Protocol.CLOUDFLARE_QUIC, label, logdir, n, cca,
+                         certfile, keyfile, pep)
         self.server_ip = self.net.h2.IP()
-        self.certfile = certfile
-        self.keyfile = keyfile
 
     def restart_server(self, logfile):
         WARN('Restarting quiche-server')
@@ -248,12 +281,12 @@ class CloudflareQUICBenchmark(BaseBenchmark):
         else:
             return (HTTP_OK_STATUSCODE, result[0])
 
-    def run(self, label, logdir, num_trials, timeout, network_statistics):
+    def run(self, num_trials, timeout, network_statistics):
         # Required outputs are in INFO logs
         os.environ['RUST_LOG'] = 'info'
 
         # Start the server
-        self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
+        self.start_server(logfile=f'{self.logdir}/{SERVER_LOGFILE}')
 
         # Initialize remaining trials
         num_trials_left = num_trials
@@ -263,8 +296,8 @@ class CloudflareQUICBenchmark(BaseBenchmark):
         # Run the client
         while num_trials_left > 0:
             result = BenchmarkResult(
-                label=label,
-                protocol=Protocol.CLOUDFLARE_QUIC,
+                label=self.label,
+                protocol=self.protocol,
                 data_size=self.n,
                 cca=self.cca,
                 pep=False,
@@ -276,14 +309,14 @@ class CloudflareQUICBenchmark(BaseBenchmark):
                 result.append_new_output()
                 self.net.reset_statistics()
                 output = self.run_client(
-                    logfile=f'{logdir}/{CLIENT_LOGFILE}',
+                    logfile=f'{self.logdir}/{CLIENT_LOGFILE}',
                     timeout=timeout,
                 )
 
                 # Error
                 if output is None:
                     ERROR('no output')
-                    self.restart_server(f'{logdir}/{SERVER_LOGFILE}')
+                    self.restart_server(f'{self.logdir}/{SERVER_LOGFILE}')
                     num_errors_left -= 1
                     if num_errors_left == 0:
                         num_trials_left = 0
@@ -302,13 +335,11 @@ class CloudflareQUICBenchmark(BaseBenchmark):
                 num_trials_left -= 1
             result.print()
 
-class QUICBenchmark(BaseBenchmark):
-    def __init__(self, net, n: str, cca: str, certfile=None, keyfile=None):
-        super().__init__(net)
-        self.n = n
-        self.cca = cca
-        self.certfile = certfile
-        self.keyfile = keyfile
+class GoogleQUICBenchmark(Benchmark):
+    def __init__(self, net: EmulatedNetwork, label: str, logdir: str, n: str,
+                 cca: str, certfile: str, keyfile: str, pep: bool=False):
+        super().__init__(net, Protocol.GOOGLE_QUIC, label, logdir, n, cca,
+                         certfile, keyfile, pep)
         self.server_ip = self.net.h2.IP()
 
         # Create cache dir
@@ -389,9 +420,9 @@ class QUICBenchmark(BaseBenchmark):
         else:
             return result[0]
 
-    def run(self, label, logdir, num_trials, timeout, network_statistics):
+    def run(self, num_trials, timeout, network_statistics):
         # Start the server
-        self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
+        self.start_server(logfile=f'{self.logdir}/{SERVER_LOGFILE}')
 
         # Initialize remaining trials
         num_trials_left = num_trials
@@ -399,8 +430,8 @@ class QUICBenchmark(BaseBenchmark):
         # Run the client
         while num_trials_left > 0:
             result = BenchmarkResult(
-                label=label,
-                protocol=Protocol.GOOGLE_QUIC,
+                label=self.label,
+                protocol=self.protocol,
                 data_size=self.n,
                 cca=self.cca,
                 pep=False,
@@ -412,7 +443,7 @@ class QUICBenchmark(BaseBenchmark):
                 result.append_new_output()
                 self.net.reset_statistics()
                 output = self.run_client(
-                    logfile=f'{logdir}/{CLIENT_LOGFILE}',
+                    logfile=f'{self.logdir}/{CLIENT_LOGFILE}',
                     timeout=timeout,
                 )
 
@@ -436,24 +467,12 @@ class QUICBenchmark(BaseBenchmark):
             result.print()
 
 
-class TCPBenchmark(BaseBenchmark):
-    def __init__(
-        self,
-        net,
-        n: int,
-        cca: str,
-        pep: bool,
-        certfile=None,
-        keyfile=None,
-    ):
-        super().__init__(net)
+class LinuxTCPBenchmark(Benchmark):
+    def __init__(self, net: EmulatedNetwork, label: str, logdir: str, n: str,
+                 cca: str, certfile: str, keyfile: str, pep: bool=False):
+        super().__init__(net, Protocol.LINUX_TCP, label, logdir, n, cca,
+                         certfile, keyfile, pep)
         net.set_tcp_congestion_control(cca)
-
-        self.n = n
-        self.cca = cca
-        self.pep = pep
-        self.certfile = certfile
-        self.keyfile = keyfile
         self.server_ip = self.net.h2.IP()
 
     def start_server(self, logfile):
@@ -510,9 +529,9 @@ class TCPBenchmark(BaseBenchmark):
         else:
             return result[0]
 
-    def run(self, label, logdir, num_trials, timeout, network_statistics):
+    def run(self, num_trials, timeout, network_statistics):
         # Start the server
-        self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
+        self.start_server(logfile=f'{self.logdir}/{SERVER_LOGFILE}')
 
         # Initialize remaining trials
         num_trials_left = num_trials
@@ -520,8 +539,8 @@ class TCPBenchmark(BaseBenchmark):
         # Run the client
         while num_trials_left > 0:
             result = BenchmarkResult(
-                label=label,
-                protocol=Protocol.LINUX_TCP,
+                label=self.label,
+                protocol=self.protocol,
                 data_size=self.n,
                 cca=self.cca,
                 pep=self.pep,
@@ -533,7 +552,7 @@ class TCPBenchmark(BaseBenchmark):
                 result.append_new_output()
                 self.net.reset_statistics()
                 output = self.run_client(
-                    logfile=f'{logdir}/{CLIENT_LOGFILE}',
+                    logfile=f'{self.logdir}/{CLIENT_LOGFILE}',
                     timeout=timeout,
                 )
 

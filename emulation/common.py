@@ -18,8 +18,6 @@ LINUX_TIMEOUT_EXITCODE = 124
 HTTP_OK_STATUSCODE = 200
 HTTP_TIMEOUT_STATUSCODE = 408
 
-# Log a benchmark result every this number of seconds so there is console
-# output, even if there are still trials remaining.
 LOG_CHUNK_TIME = 300
 
 class Protocol(Enum):
