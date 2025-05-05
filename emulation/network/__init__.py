@@ -258,29 +258,6 @@ class EmulatedNetwork:
         if self.net is not None:
             self.net.stop()
 
-    def start_tcp_pep(self, logfile):
-        self.popen(self.r1, 'ip rule add fwmark 1 lookup 100')
-        self.popen(self.r1, 'ip route add local 0.0.0.0/0 dev lo table 100')
-        self.popen(self.r1, 'iptables -t mangle -F')
-        self.popen(self.r1, 'iptables -t mangle -A PREROUTING -i r1-eth1 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
-        self.popen(self.r1, 'iptables -t mangle -A PREROUTING -i r1-eth0 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
-
-        condition = threading.Condition()
-        def notify_when_ready(line):
-            if 'Pepsal started' in line:
-                with condition:
-                    condition.notify()
-
-        # The start_tcp_pep() function blocks until the TCP PEP is ready to
-        # split connections. That is, when we observe the 'Pepsal started'
-        # string in the router output.
-        self.popen(self.r1, 'pepsal -v', background=True,
-            console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
-        with condition:
-            notified = condition.wait(timeout=SETUP_TIMEOUT)
-            if not notified:
-                raise TimeoutError(f'start_tcp_pep timeout {SETUP_TIMEOUT}s')
-
 
 from .one_segment import OneSegmentNetwork
 from .two_segment import TwoSegmentNetwork

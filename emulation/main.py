@@ -217,7 +217,10 @@ if __name__ == '__main__':
     if args.topology == 'one_hop':
         net = TwoSegmentNetwork(args.delay1, args.delay2,
             args.loss1, args.loss2, args.bw1, args.bw2, args.qdisc, pacing)
+        if args.pep:
+            net.start_tcp_pep(logdir=args.logdir)
     elif args.topology == 'direct':
+        assert not args.pep
         net = OneSegmentNetwork(args.delay1, args.loss1, args.bw1,
             args.qdisc, pacing)
     else:

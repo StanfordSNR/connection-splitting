@@ -1,3 +1,4 @@
+import threading
 from common import *
 from network import EmulatedNetwork
 
@@ -71,3 +72,27 @@ class TwoSegmentNetwork(EmulatedNetwork):
         self.config_iface('e1-eth1', True, False, delay1, loss1, bw1, bdp, qdisc)
         self.config_iface('e2-eth0', True, False, delay2, loss2, bw2, bdp, qdisc)
         self.config_iface('e2-eth1', True, False, delay2, loss2, bw2, bdp, qdisc)
+
+    def start_tcp_pep(self, logdir: str, timeout: int=SETUP_TIMEOUT):
+        self.popen(self.r1, 'ip rule add fwmark 1 lookup 100')
+        self.popen(self.r1, 'ip route add local 0.0.0.0/0 dev lo table 100')
+        self.popen(self.r1, 'iptables -t mangle -F')
+        self.popen(self.r1, 'iptables -t mangle -A PREROUTING -i r1-eth1 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
+        self.popen(self.r1, 'iptables -t mangle -A PREROUTING -i r1-eth0 -p tcp -j TPROXY --on-port 5000 --tproxy-mark 1')
+
+        condition = threading.Condition()
+        def notify_when_ready(line):
+            if 'Pepsal started' in line:
+                with condition:
+                    condition.notify()
+
+        # The start_tcp_pep() function blocks until the TCP PEP is ready to
+        # split connections. That is, when we observe the 'Pepsal started'
+        # string in the router output.
+        logfile = f'{logdir}/{ROUTER_LOGFILE}'
+        self.popen(self.r1, 'pepsal -v', background=True,
+            console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
+        with condition:
+            notified = condition.wait(timeout=timeout)
+            if not notified:
+                raise TimeoutError(f'start_tcp_pep timeout {timeout}s')

@@ -514,10 +514,6 @@ class TCPBenchmark(BaseBenchmark):
         # Start the server
         self.start_server(logfile=f'{logdir}/{SERVER_LOGFILE}')
 
-        # Start the TCP PEP
-        if self.pep:
-            self.net.start_tcp_pep(logfile=f'{logdir}/{ROUTER_LOGFILE}')
-
         # Initialize remaining trials
         num_trials_left = num_trials
 
