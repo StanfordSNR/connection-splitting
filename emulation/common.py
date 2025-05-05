@@ -3,6 +3,7 @@ import select
 import sys
 import subprocess
 import re
+from enum import Enum
 
 SERVER_LOGFILE = 'server.log'
 CLIENT_LOGFILE = 'client.log'
@@ -18,6 +19,12 @@ HTTP_TIMEOUT_STATUSCODE = 408
 LOG_CHUNK_TIME = 300
 
 DEFAULT_DELAY_CORR = 40
+
+class Protocol(Enum):
+    LINUX_TCP = 0
+    GOOGLE_QUIC = 1
+    CLOUDFLARE_QUIC = 2
+    PICOQUIC = 3
 
 def TRACE(val):
     # LOG(val, 'TRACE')
