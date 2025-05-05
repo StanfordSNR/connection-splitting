@@ -135,7 +135,7 @@ if __name__ == '__main__':
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     tcp.set_defaults(ty='benchmark', benchmark=benchmark_tcp)
-    tcp.add_argument('-n', type=parse_data_size, default=1000000,
+    tcp.add_argument('-n', type=parse_data_size, default=10000,
         help='Number of bytes to download in the HTTP/1.1 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
     tcp.add_argument('-cca', '--congestion-control',
@@ -154,7 +154,7 @@ if __name__ == '__main__':
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     google.set_defaults(ty='benchmark', benchmark=benchmark_google)
-    google.add_argument('-n', type=parse_data_size, default=1000000,
+    google.add_argument('-n', type=parse_data_size, default=10000,
         help='Number of bytes to download in the HTTP/3 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
     google.add_argument('-cca', '--congestion-control',
@@ -173,7 +173,7 @@ if __name__ == '__main__':
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     cloudflare.set_defaults(ty='benchmark', benchmark=benchmark_cloudflare)
-    cloudflare.add_argument('-n', type=parse_data_size, default=1000000,
+    cloudflare.add_argument('-n', type=parse_data_size, default=10000,
         help='Number of bytes to download in the HTTP/3 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
     cloudflare.add_argument('-cca', '--congestion-control',
@@ -192,7 +192,7 @@ if __name__ == '__main__':
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     picoquic.set_defaults(ty='benchmark', benchmark=benchmark_picoquic)
-    picoquic.add_argument('-n', type=parse_data_size, default=1000000,
+    picoquic.add_argument('-n', type=parse_data_size, default=10000,
         help='Number of bytes to download in the HTTP/3 GET request, '\
              'e.g., 1000, 1K, 1M, 1000000, 1G')
     picoquic.add_argument('-cca', '--congestion-control',
