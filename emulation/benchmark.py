@@ -10,11 +10,10 @@ from common import *
 
 
 class Protocol(Enum):
-    QUIC = 0
-    TCP = 1
-    TCP_IPERF3 = 2
-    CloudflareQUIC = 3
-    PicoQUIC = 4
+    LINUX_TCP = 0
+    GOOGLE_QUIC = 1
+    CLOUDFLARE_QUIC = 2
+    PICOQUIC = 3
 
 
 class BenchmarkResult:
@@ -183,7 +182,7 @@ class PicoQUICBenchmark(BaseBenchmark):
         while num_trials_left > 0:
             result = BenchmarkResult(
                 label=label,
-                protocol=Protocol.PicoQUIC,
+                protocol=Protocol.PICOQUIC,
                 data_size=self.n,
                 cca=self.cca,
                 pep=False,
@@ -322,7 +321,7 @@ class CloudflareQUICBenchmark(BaseBenchmark):
         while num_trials_left > 0:
             result = BenchmarkResult(
                 label=label,
-                protocol=Protocol.CloudflareQUIC,
+                protocol=Protocol.CLOUDFLARE_QUIC,
                 data_size=self.n,
                 cca=self.cca,
                 pep=False,
@@ -458,7 +457,7 @@ class QUICBenchmark(BaseBenchmark):
         while num_trials_left > 0:
             result = BenchmarkResult(
                 label=label,
-                protocol=Protocol.QUIC,
+                protocol=Protocol.GOOGLE_QUIC,
                 data_size=self.n,
                 cca=self.cca,
                 pep=False,
@@ -583,7 +582,7 @@ class TCPBenchmark(BaseBenchmark):
         while num_trials_left > 0:
             result = BenchmarkResult(
                 label=label,
-                protocol=Protocol.TCP,
+                protocol=Protocol.LINUX_TCP,
                 data_size=self.n,
                 cca=self.cca,
                 pep=self.pep,
