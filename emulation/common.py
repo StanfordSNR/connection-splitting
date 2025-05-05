@@ -13,12 +13,10 @@ DEFAULT_SSL_CERTFILE = f'deps/certs/out/leaf_cert.pem'
 DEFAULT_SSL_KEYFILE = f'deps/certs/out/leaf_cert.key'
 DEFAULT_SSL_KEYFILE_GOOGLE = f'deps/certs/out/leaf_cert.pkcs8'
 
-SETUP_TIMEOUT = 10
+SETUP_TIMEOUT = 3
 LINUX_TIMEOUT_EXITCODE = 124
 HTTP_OK_STATUSCODE = 200
 HTTP_TIMEOUT_STATUSCODE = 408
-
-LOG_CHUNK_TIME = 300
 
 class Protocol(Enum):
     LINUX_TCP = 0
