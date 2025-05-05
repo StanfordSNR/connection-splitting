@@ -1,5 +1,5 @@
 import re
-import time
+import threading
 from typing import Optional, Tuple
 
 from benchmark import Benchmark
@@ -26,15 +26,9 @@ class PicoQUICBenchmark(Benchmark):
               f'{self.n} '\
               f'{self.cca}'
 
-        DEBUG(f'{self.server.name} {cmd}')
-        self.server.cmd(cmd + ' &')
-        time.sleep(2)
-
-        '''
-        TODO FIGURE OUT WHY POPEN ISN'T STARTING for picoquic
         condition = threading.Condition()
         def notify_when_ready(line):
-            if 'serving' in line.lower():
+            if line.startswith('Serving'):
                 with condition:
                     condition.notify()
 
@@ -47,9 +41,7 @@ class PicoQUICBenchmark(Benchmark):
         with condition:
             notified = condition.wait(timeout=timeout)
             if not notified:
-                WARN("Server did not print expected output; continuing anyway")
-                # raise TimeoutError(f'start_server timeout {timeout}s')
-        '''
+                raise TimeoutError(f'start_server timeout {timeout}s')
 
     def run_client(self, timeout: Optional[int]=None) -> Optional[Tuple[int, float]]:
         """Returns the status code and runtime (seconds) of the GET request.
@@ -62,42 +54,26 @@ class PicoQUICBenchmark(Benchmark):
               f'/tmp '\
               f'{self.cca} '\
               f'{self.n}.html '
-        if timeout is None:
-            DEBUG(f'{self.client.name} {cmd}')
-            output = self.client.cmd(cmd)
-        else:
-            DEBUG(f'{self.client.name} timeout {timeout} {cmd}')
-            output = self.client.cmd(f"timeout {timeout} {cmd}")
 
         result = []
         def parse_result(line):
-            if 'complete' not in line:
+            pattern = r'complete.*in ([\d.]+) seconds'
+            match = re.search(pattern, line)
+            if match is None:
                 return
-            try:
-                match = re.search(r'\d+\.\d+ seconds', line).group(0)
-                time_s = float(match.split(' ')[0])
-                result.append(time_s)
-            except:
-                pass
+            time_s = float(match.group(1))
+            result.append(time_s)
 
-        print(output)
-        for line in output.split('\n'):
-            parse_result(line)
-
-        # TODO figure out why popen isn't working
-        # logfile = self.logfile(self.client)
-        # timeout_flag = self.net.popen(self.client, cmd, background=False,
-        #     console_logger=DEBUG, logfile=logfile, func=parse_result,
-        #     timeout=timeout, raise_error=False)
+        logfile = self.logfile(self.client)
+        timeout_flag = self.net.popen(self.client, cmd, background=False,
+            console_logger=DEBUG, logfile=logfile, func=parse_result,
+            timeout=timeout, raise_error=False)
 
         if len(result) == 0:
             WARN('PicoQUIC client failed to return result')
-            if timeout is not None:
-                WARN('assuming picoquic timeout')
-                return (HTTP_TIMEOUT_STATUSCODE, timeout)
-            else:
-                return None
         elif len(result) > 1:
             WARN(f'PicoQUIC client returned multiple results {result}')
+        elif timeout_flag:
+            return HTTPClientOutput(HTTP_TIMEOUT_STATUSCODE, timeout)
         else:
             return (HTTP_OK_STATUSCODE, result[0])
