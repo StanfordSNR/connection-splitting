@@ -69,8 +69,6 @@ class BaseBenchmark:
     def __init__(self, net):
         self.net = net
 
-    def start_sidekick(self):
-        pass
 
 class PicoQUICBenchmark(BaseBenchmark):
     def __init__(self, net, n: str, cca: str, certfile=None, keyfile=None):

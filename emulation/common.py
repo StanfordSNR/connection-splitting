@@ -36,7 +36,7 @@ def ERROR(val):
     LOG(val, 'ERROR')
 
 def LOG(val, level):
-    print(f'[SIDEKICK:{level}] {val}', file=sys.stderr);
+    print(f'[{level}] {val}', file=sys.stderr);
 
 def init_logdir(path):
     os.system(f'mkdir -p {path}')

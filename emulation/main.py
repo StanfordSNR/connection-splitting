@@ -135,7 +135,7 @@ if __name__ == '__main__':
     exp_config.add_argument('--timeout', type=int,
         help='Experiment timeout, in seconds')
     exp_config.add_argument('--label', type=str, default='NO_LABEL')
-    exp_config.add_argument('--logdir', type=str, default='/tmp/sidekick-logs',
+    exp_config.add_argument('--logdir', type=str, default='/tmp/atc25-logs',
         help='Directory where host logs are written, in server.log and client.log')
     exp_config.add_argument('--network-statistics', action='store_true',
         help='Include measured network statistics in experiment output')
