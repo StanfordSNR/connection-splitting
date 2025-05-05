@@ -53,7 +53,7 @@ class EmulatedNetwork:
             linux_version = get_linux_version()
             if pacing or linux_version < 5.0:
                 self.popen(host, f'tc qdisc add dev {iface} root handle 2: '\
-                                f'fq pacing', console_logger=DEBUG)
+                                f'fq pacing', console_logger=TRACE)
             return
 
         # Configure the network emulator node
@@ -63,7 +63,7 @@ class EmulatedNetwork:
               f'netem delay {delay}ms '
         if loss is not None and int(loss) > 0:
             cmd += f'loss {loss}% '
-        self.popen(host, cmd, console_logger=DEBUG)
+        self.popen(host, cmd, console_logger=TRACE)
 
         # Add HTB for bandwidth
         # Take the min because sch_htb complains about the quantum being too big
@@ -73,11 +73,11 @@ class EmulatedNetwork:
         r2q = 10
         quantum = min(int(bw*1000000/8 / r2q), 200000)
         self.popen(host, f'tc qdisc add dev {iface} parent 2: handle 3: ' \
-                         f'htb default 10', console_logger=DEBUG)
+                         f'htb default 10', console_logger=TRACE)
         htb_rate = int(2*bw) if qdisc == 'policer' else bw
         self.popen(host, f'tc class add dev {iface} parent 3: ' \
                          f'classid 10 htb rate {htb_rate}Mbit quantum {quantum}',
-                         console_logger=DEBUG)
+                         console_logger=TRACE)
 
         # Add queue management
         if qdisc == 'policer':
@@ -120,13 +120,13 @@ class EmulatedNetwork:
                 queue_cmd += f'fq_codel'
             else:
                 raise NotImplementedError(qdisc)
-            self.popen(host, queue_cmd, console_logger=DEBUG)
+            self.popen(host, queue_cmd, console_logger=TRACE)
 
         # Turn off tso and gso to send MTU-sized packets
         gso = 'on' if gso else 'off'
         tso = 'on' if tso else 'off'
         self.popen(host, f'ethtool -K {iface} gso {gso} tso {tso}',
-                   console_logger=DEBUG)
+                   console_logger=TRACE)
 
     def set_tcp_congestion_control(self, cca):
         version = get_linux_version()
