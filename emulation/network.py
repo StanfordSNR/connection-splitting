@@ -19,14 +19,14 @@ class EmulatedNetwork:
         # Keep track of background processes for cleanup
         self.background_processes = []
 
-    def _config_iface(self, iface, netem: bool, pacing: bool=False,
+    def config_iface(self, iface, netem: bool, pacing: bool=False,
                       delay=None, loss=None, bw=None, bdp=None, qdisc=None,
-                      gso=True, tso=True, jitter=None):
+                      gso=True, tso=True):
         """Configures the given interface <iface>:
         - Netem: whether this is a network emulation node (i.e., delay, loss, etc.
           should be configured)
         - Loss: <loss>% stochastic packet loss
-        - Delay: <delay>ms delay w/ ±<jitter>ms jitter, <delay_corr>% correlation
+        - Delay: <delay>ms delay
         - Base bandwidth: <bw> Mbit/s, range: <bw_min> to <bw_max> Mbit/s
         - Bandwidth-delay product: <bdp> is used to set the queue size
         """
@@ -49,8 +49,6 @@ class EmulatedNetwork:
               f'netem delay {delay}ms '
         if loss is not None and int(loss) > 0:
             cmd += f'loss {loss}% '
-        if jitter is not None:
-            cmd += f'{jitter}ms {DEFAULT_DELAY_CORR}% distribution paretonormal'
         self.popen(host, cmd, console_logger=DEBUG)
 
         # Add HTB for bandwidth
@@ -290,8 +288,7 @@ and the router (r1), and the 2nd link is between the router (r1) and the
 server / data sender (h2).
 """
 class OneHopNetwork(EmulatedNetwork):
-    def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2, jitter1, jitter2,
-                 qdisc, pacing):
+    def __init__(self, delay1, delay2, loss1, loss2, bw1, bw2, qdisc, pacing):
         super().__init__()
 
         # Add hosts, switches, and network emulation nodes
@@ -346,14 +343,14 @@ class OneHopNetwork(EmulatedNetwork):
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
         rtt = 2 * (delay1 + delay2)
         bdp = calculate_bdp(delay1, delay2, bw1, bw2)
-        self._config_iface('h1-eth0', False, pacing)
-        self._config_iface('r1-eth0', False, pacing)
-        self._config_iface('r1-eth1', False, pacing)
-        self._config_iface('h2-eth0', False, pacing)
-        self._config_iface('e1-eth0', True, False, delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
-        self._config_iface('e1-eth1', True, False, delay1, loss1, bw1, bdp, qdisc, jitter=jitter1)
-        self._config_iface('e2-eth0', True, False, delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
-        self._config_iface('e2-eth1', True, False, delay2, loss2, bw2, bdp, qdisc, jitter=jitter2)
+        self.config_iface('h1-eth0', False, pacing)
+        self.config_iface('r1-eth0', False, pacing)
+        self.config_iface('r1-eth1', False, pacing)
+        self.config_iface('h2-eth0', False, pacing)
+        self.config_iface('e1-eth0', True, False, delay1, loss1, bw1, bdp, qdisc)
+        self.config_iface('e1-eth1', True, False, delay1, loss1, bw1, bdp, qdisc)
+        self.config_iface('e2-eth0', True, False, delay2, loss2, bw2, bdp, qdisc)
+        self.config_iface('e2-eth1', True, False, delay2, loss2, bw2, bdp, qdisc)
 
 
 """
@@ -361,7 +358,7 @@ Defines an emulated network in mininet that directly connects the client /
 data receiver (h1) to the server / data sender (h2) with a single link.
 """
 class DirectNetwork(EmulatedNetwork):
-    def __init__(self, delay, loss, bw, jitter, qdisc, pacing):
+    def __init__(self, delay, loss, bw, qdisc, pacing):
         super().__init__()
 
         # Add hosts and switches
@@ -395,7 +392,7 @@ class DirectNetwork(EmulatedNetwork):
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
         bdp = calculate_bdp(delay, 0, bw, bw)
         rtt = 2 * delay
-        self._config_iface('h1-eth0', False, pacing)
-        self._config_iface('h2-eth0', False, pacing)
-        self._config_iface('e1-eth0', True, False, delay, loss, bw, bdp, qdisc, jitter=jitter)
-        self._config_iface('e1-eth1', True, False, delay, loss, bw, bdp, qdisc, jitter=jitter)
+        self.config_iface('h1-eth0', False, pacing)
+        self.config_iface('h2-eth0', False, pacing)
+        self.config_iface('e1-eth0', True, False, delay, loss, bw, bdp, qdisc)
+        self.config_iface('e1-eth1', True, False, delay, loss, bw, bdp, qdisc)

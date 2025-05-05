@@ -22,8 +22,6 @@ HTTP_TIMEOUT_STATUSCODE = 408
 # output, even if there are still trials remaining.
 LOG_CHUNK_TIME = 300
 
-DEFAULT_DELAY_CORR = 40
-
 class Protocol(Enum):
     LINUX_TCP = 0
     GOOGLE_QUIC = 1

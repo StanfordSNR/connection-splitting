@@ -122,12 +122,6 @@ if __name__ == '__main__':
         help='link bandwidth (in Mbps) on near path segment')
     net_config.add_argument('--bw2', type=int, default=10, metavar='MBPS',
         help='link bandwidth (in Mbps) on far path segment')
-    net_config.add_argument('--jitter1', type=int, metavar='MS',
-        help='jitter on near path segment with a default delay correlation '\
-            f'of {DEFAULT_DELAY_CORR}%% and a paretonormal distribution')
-    net_config.add_argument('--jitter2', type=int, metavar='MS',
-        help='jitter on far path segment with a default delay correlation '\
-            f'of {DEFAULT_DELAY_CORR}%% and a paretonormal distribution')
     net_config.add_argument('--qdisc', type=str, default='red',
         choices=['red', 'bfifo-large', 'bfifo-small', 'pie', 'codel',
                  'policer', 'fq_codel'],
@@ -222,9 +216,9 @@ if __name__ == '__main__':
 
     if args.topology == 'one_hop':
         net = OneHopNetwork(args.delay1, args.delay2, args.loss1, args.loss2,
-            args.bw1, args.bw2, args.jitter1, args.jitter2, args.qdisc, pacing)
+            args.bw1, args.bw2, args.qdisc, pacing)
     elif args.topology == 'direct':
-        net = DirectNetwork(args.delay1, args.loss1, args.bw1, args.jitter1,
+        net = DirectNetwork(args.delay1, args.loss1, args.bw1,
             args.qdisc, pacing)
     else:
         raise NotImplementedError(args.topology)
