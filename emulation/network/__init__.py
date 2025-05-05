@@ -3,6 +3,7 @@ import sys
 import threading
 
 from common import *
+from mininet.node import Host
 from mininet.net import Mininet
 from mininet.link import TCLink
 
@@ -13,12 +14,24 @@ class EmulatedNetwork:
     """
     METRICS = ['tx_packets', 'tx_bytes', 'rx_packets', 'rx_bytes']
 
-    def __init__(self):
+    def __init__(self, debug: bool=False):
         self.net = Mininet(controller=None, link=TCLink)
+        self.debug = debug
+        self.primary_ifaces = []
         self.iface_to_host = {}
 
         # Keep track of background processes for cleanup
         self.background_processes = []
+        self.background_threads = []
+
+    def set_arp_table(self, host: Host, ip: str, mac: str, iface: str):
+        self.popen(host, f'ip neigh add {ip} lladdr {mac} dev {iface} nud permanent')
+
+    def start_tcpdump(self, logdir: str):
+        for iface in self.primary_ifaces:
+            host = self.iface_to_host[iface]
+            cmd = f'tcpdump -i {iface} -w {logdir}/{iface}.pcap'
+            self.popen(host, cmd, background=True, console_logger=DEBUG)
 
     def config_iface(self, iface, netem: bool, pacing: bool=False,
                       delay=None, loss=None, bw=None, bdp=None, qdisc=None,
@@ -171,69 +184,112 @@ class EmulatedNetwork:
 
     def popen(self, host, cmd, background=False, func=None, timeout=None,
               stdout=False, stderr=True, console_logger=TRACE, logfile=None,
-              exit_on_err=True):
+              raise_error=True):
         """
         Start a process that executes a command on the given mininet host.
+
+        The function has a variety of logging capabilities. All commands can
+        be logged to the console using the console_logger. Only synchronous
+        processes can log outputs to the console, and console output can be
+        quieted using the stdout and/or stderr options. Only mininet host
+        commands can log to a logfile, and if provided, all output is logged.
+        Errors are always logged to the console, though processes can be
+        configured to error without raising an exception.
+
         Parameters:
-        - host: the mininet host
-        - cmd: a command string
-        - background: whether to run as a background process
-        - func: a function to execute on every line of output.
-          the function takes as input (line,).
-        - timeout: timeout, in seconds, to use on a mininet host
-        - stdout: whether to log stdout to the console
-        - stderr: whether to log stderr to the console
-        - console_logger: log level function for logging to the console
-        - logfile: the logfile to append output (both stdout and stderr) to
+        - host: The mininet host, or None if executing on the local host.
+        - cmd: A command string.
+        - background: Whether to run as a background process. Background
+          processes can only be executed on mininet hosts.
+        - func: A callback function to execute on every line of output. The
+          function takes as input (line,). Only on mininet hosts.
+        - timeout: The cmd timeout, in seconds. Only on mininet hosts and
+          synchronous processes.
+
+        Logging parameters:
+        - console_logger: Log level function, e.g., DEBUG, for logging to the
+          console. Takes a string as input and logs the executed command,
+          appending ' &' if it is a background process and prepending the host
+          name if it is executed on a mininet host. Also logs stdout and/or
+          stderr, whichever is enabled, for synchronous processes.
+        - stdout: Whether to log stdout to the console logger.
+        - stderr: Whether to log stderr to the console logger.
+        - logfile: The name of the logfile to append full output (both stdout
+          and stderr). Independent of the stdout and stderr options. Only on
+          mininet hosts. If the network collects perf reports, the report will
+          be written to "<logfile>.perf".
+        - raise_error: Whether to raise an error on a non-zero exitcode or to
+          fail silently with only a log message. Only on synchronous processes
+          as we don't wait for background processes to terminate to check the
+          exitcode.
 
         Returns:
-        - If a background process, returns the background process.
+        - If a background process, returns the process and the thread that is
+          handling the background process.
         - If not, returns True if there was a timeout and False if the process
-          executed successfully.
-        - For any other exitcodes, exits the program.
+          executed to completion.
+        - For non-zero exitcodes, exits the program unless configured not to.
+
+        Raises:
+        AssertionError on a valid configuration i.e., timeouts are enabled for
+        a process that is not executed on a mininet host.
         """
         # Log the command to be executed
         host_str = '' if host is None else f'{host.name} '
         background_str = ' &' if background else ''
         console_logger(f'{host_str}{cmd}{background_str}')
 
+        # Set debug environment variables.
+        env = os.environ.copy()
+        env['RUST_BACKTRACE'] = '1'
+        if self.debug:
+            env['RUST_LOG'] = 'debug'
+        else:
+            env['RUST_LOG'] = 'info'
+
         # Execute the command on the local host
         if host is None:
             assert not background
-            p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            assert timeout is None
+            assert logfile is None
+            assert func is None
+            p = subprocess.run(cmd, shell=True, text=True, env=env,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if p.stdout and stdout:
-                print(p.stdout.strip(), file=sys.stderr)
+                console_logger(p.stdout.strip())
             if p.stderr and stderr:
-                print(p.stderr.strip(), file=sys.stderr)
+                console_logger(p.stderr.strip())
             if p.returncode != 0:
-                print(f'{cmd} = {p.returncode}', file=sys.stderr)
-                if exit_on_err:
-                    exit(1)
+                ERROR(f'{cmd} = {p.returncode}')
+                if raise_error:
+                    raise ValueError(f'{cmd} = {p.returncode}')
             return
 
         # Execute the command on a mininet host in the background
         if background:
+            assert timeout is None
             p = host.popen(cmd.split(), stdout=subprocess.PIPE,
-                           stderr=subprocess.PIPE, text=True)
-            self.background_processes.append(p)
+                           stderr=subprocess.PIPE, text=True, env=env)
             thread = threading.Thread(
                 target=handle_background_process,
                 args=(p, logfile, func),
             )
             thread.start()
-            return p
+            self.background_processes.append(p)
+            self.background_threads.append(thread)
+            return (p, thread)
 
-        # Execute the command synchronously with a timeout
+        # Execute the command synchronously, possibly with a timeout
         cmd_input = cmd.split()
         if timeout is not None:
             cmd_input = ['timeout', f'{timeout}s'] + cmd_input
         p = host.popen(cmd_input, stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE, text=True)
+                       stderr=subprocess.PIPE, text=True, env=env)
         for line, stream in read_subprocess_pipe(p):
             if stream == p.stdout and stdout:
-                print(line, end='', file=sys.stderr)
+                console_logger(line.strip())
             if stream == p.stderr and stderr:
-                print(line, end='', file=sys.stderr)
+                console_logger(line.strip())
             if logfile is not None:
                 with open(logfile, 'a') as f:
                     f.write(line)
@@ -247,9 +303,10 @@ class EmulatedNetwork:
         elif exitcode == LINUX_TIMEOUT_EXITCODE:
             return True
         else:
-            print(f'{host}({cmd}) = {exitcode}', file=sys.stderr)
-            if exit_on_err:
-                exit(1)
+            ERROR(f'{host}({cmd}) = {exitcode}')
+            if raise_error:
+                debug_str = f'{host}({cmd}) = {p.returncode}'
+                raise ValueError(debug_str)
 
     def stop(self):
         for p in self.background_processes:

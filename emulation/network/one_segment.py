@@ -21,6 +21,7 @@ class OneSegmentNetwork(EmulatedNetwork):
         self.net.build()
 
         # Initialize statistics
+        self.primary_ifaces = ['h1-eth0', 'h2-eth0']
         self.iface_to_host = {
             'h1-eth0': self.h1,
             'h2-eth0': self.h2,
@@ -36,6 +37,10 @@ class OneSegmentNetwork(EmulatedNetwork):
         self.popen(self.e1, "brctl addif br0 e1-eth0")
         self.popen(self.e1, "brctl addif br0 e1-eth1")
         self.popen(self.e1, "ip link set dev br0 up")
+
+        # Prepopulate arp table
+        self.set_arp_table(self.h1, '172.16.2.10', mac(2), 'h1-eth0')
+        self.set_arp_table(self.h2, '172.16.1.10', mac(1), 'h2-eth0')
 
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf

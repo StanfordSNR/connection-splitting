@@ -28,6 +28,7 @@ class TwoSegmentNetwork(EmulatedNetwork):
         self.net.build()
 
         # Initialize statistics
+        self.primary_ifaces = ['h1-eth0', 'r1-eth0', 'r1-eth1', 'h2-eth0']
         self.iface_to_host = {
             'h1-eth0': self.h1,
             'r1-eth0': self.r1,
@@ -42,8 +43,8 @@ class TwoSegmentNetwork(EmulatedNetwork):
         # Setup routing and forwarding
         self.popen(self.r1, "ifconfig r1-eth0 0")
         self.popen(self.r1, "ifconfig r1-eth1 0")
-        self.popen(self.r1, "ifconfig r1-eth0 hw ether 00:00:00:00:01:01")
-        self.popen(self.r1, "ifconfig r1-eth1 hw ether 00:00:00:00:01:02")
+        self.popen(self.r1, f"ifconfig r1-eth0 hw ether {mac(3)}")
+        self.popen(self.r1, f"ifconfig r1-eth1 hw ether {mac(4)}")
         self.popen(self.r1, "ip addr add 172.16.1.1/24 brd + dev r1-eth0")
         self.popen(self.r1, "ip addr add 172.16.2.1/24 brd + dev r1-eth1")
         self.r1.cmd("echo 1 > /proc/sys/net/ipv4/ip_forward")
@@ -59,6 +60,12 @@ class TwoSegmentNetwork(EmulatedNetwork):
         self.popen(self.e2, "brctl addif br0 e2-eth0")
         self.popen(self.e2, "brctl addif br0 e2-eth1")
         self.popen(self.e2, "ip link set dev br0 up")
+
+        # Prepopulate arp table
+        self.set_arp_table(self.h1, '172.16.1.1', mac(3), 'h1-eth0')
+        self.set_arp_table(self.r1, '172.16.1.10', mac(1), 'r1-eth0')
+        self.set_arp_table(self.r1, '172.16.2.10', mac(2), 'r1-eth1')
+        self.set_arp_table(self.h2, '172.16.2.1', mac(4), 'h2-eth0')
 
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
