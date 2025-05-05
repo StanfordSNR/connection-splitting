@@ -215,10 +215,10 @@ if __name__ == '__main__':
         pacing = False
 
     if args.topology == 'one_hop':
-        net = OneHopNetwork(args.delay1, args.delay2, args.loss1, args.loss2,
-            args.bw1, args.bw2, args.qdisc, pacing)
+        net = TwoSegmentNetwork(args.delay1, args.delay2,
+            args.loss1, args.loss2, args.bw1, args.bw2, args.qdisc, pacing)
     elif args.topology == 'direct':
-        net = DirectNetwork(args.delay1, args.loss1, args.bw1,
+        net = OneSegmentNetwork(args.delay1, args.loss1, args.bw1,
             args.qdisc, pacing)
     else:
         raise NotImplementedError(args.topology)
