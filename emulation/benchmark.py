@@ -3,6 +3,7 @@ import time
 import threading
 from typing import Optional, Tuple
 import re
+import mininet
 
 from common import *
 from network import EmulatedNetwork
@@ -46,6 +47,57 @@ class Benchmark(ABC):
         self.keyfile = keyfile
         self.pep = pep
 
+    def logfile(self, host: mininet.node.Host) -> Optional[str]:
+        """Path to the logfile for this host. The logs are written to the
+        SERVER_LOGFILE, CLIENT_LOGFILE, and ROUTER_LOGFILE files, as defined in
+        common.py, in the provided log directory.
+        """
+        if host == self.server:
+            return f'{self.logdir}/{SERVER_LOGFILE}'
+        elif host == self.client:
+            return f'{self.logdir}/{CLIENT_LOGFILE}'
+        elif host == self.proxy and self.proxy is not None:
+            return f'{self.logdir}/{ROUTER_LOGFILE}'
+
+    @property
+    def server(self):
+        return self.net.h2
+
+    @property
+    def client(self):
+        return self.net.h1
+
+    @abstractmethod
+    def start_server(self, timeout: int=SETUP_TIMEOUT):
+        """Start the HTTP server on the h2 host and write output to a logfile.
+
+        This function runs the server in the background but blocks until the
+        server is ready to accept requests. Raises an error if unsuccessful.
+
+        Parameters:
+        - timeout: The number of seconds to block during setup before an error.
+        """
+        pass
+
+    @abstractmethod
+    def run_client(
+        self, timeout: Optional[int]=None,
+    ) -> Optional[Tuple[int, float]]:
+        """
+        Runs the HTTP client on the h1 host and writes output to a logfile.
+
+        Parameters:
+        - timeout: If provided, the number of seconds to wait for the client
+          to complete its request.
+
+        Returns:
+        - If there is an error that is not a timeout, returns None.
+        - The HTTP status code and the total runtime, in seconds, of the GET
+          request. If the client has timed out, returns HTTP_TIMEOUT_STATUSCODE
+          even though the timeout may not have occurred in the actual endpoints.
+        """
+        pass
+
 
 class PicoQUICBenchmark(Benchmark):
     def __init__(
@@ -54,14 +106,13 @@ class PicoQUICBenchmark(Benchmark):
     ):
         super().__init__(net, Protocol.PICOQUIC, label, logdir, n, cca,
                          certfile, keyfile, pep)
-        self.server_ip = self.net.h2.IP()
 
-    def restart_server(self, logfile):
+    def restart_server(self):
         WARN('Restarting picoquic-server')
-        self.net.h2.cmd('killall picoquic_sample')
-        self.start_server(logfile=logfile)
+        self.server.cmd('killall picoquic_sample')
+        self.start_server(logfile=self.logfile(self.server))
 
-    def start_server(self, logfile):
+    def start_server(self, timeout: int=SETUP_TIMEOUT):
         base = 'deps/picoquic'
         cmd = f'./{base}/picoquic_sample '\
               f'server '\
@@ -72,8 +123,8 @@ class PicoQUICBenchmark(Benchmark):
               f'{self.n} '\
               f'{self.cca}'
 
-        DEBUG(f'{self.net.h2.name} {cmd}')
-        self.net.h2.cmd(cmd + ' &')
+        DEBUG(f'{self.server.name} {cmd}')
+        self.server.cmd(cmd + ' &')
         time.sleep(2)
 
         '''
@@ -87,32 +138,33 @@ class PicoQUICBenchmark(Benchmark):
         # The start_server() function blocks until the server is ready to
         # accept client requests. That is, when we observe the 'Serving'
         # string in the server output.
-        self.net.popen(self.net.h2, cmd, background=True,
+        logfile = self.logfile(self.server)
+        self.net.popen(self.server, cmd, background=True,
             console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
         with condition:
-            notified = condition.wait(timeout=SETUP_TIMEOUT)
+            notified = condition.wait(timeout=timeout)
             if not notified:
                 WARN("Server did not print expected output; continuing anyway")
-                # raise TimeoutError(f'start_server timeout {SETUP_TIMEOUT}s')
+                # raise TimeoutError(f'start_server timeout {timeout}s')
         '''
 
-    def run_client(self, logfile, timeout) -> Optional[Tuple[int, float]]:
+    def run_client(self, timeout: Optional[int]=None) -> Optional[Tuple[int, float]]:
         """Returns the status code and runtime (seconds) of the GET request.
         """
         base = 'deps/picoquic'
         cmd = f'./{base}/picoquic_sample '\
               f'client '\
-              f'{self.server_ip} '\
+              f'{self.server.IP()} '\
               f'4433 '\
               f'/tmp '\
               f'{self.cca} '\
               f'{self.n}.html '
         if timeout is None:
-            DEBUG(f'{self.net.h1.name} {cmd}')
-            output = self.net.h1.cmd(cmd)
+            DEBUG(f'{self.client.name} {cmd}')
+            output = self.client.cmd(cmd)
         else:
-            DEBUG(f'{self.net.h1.name} timeout {timeout} {cmd}')
-            output = self.net.h1.cmd(f"timeout {timeout} {cmd}")
+            DEBUG(f'{self.client.name} timeout {timeout} {cmd}')
+            output = self.client.cmd(f"timeout {timeout} {cmd}")
 
         result = []
         def parse_result(line):
@@ -130,7 +182,8 @@ class PicoQUICBenchmark(Benchmark):
             parse_result(line)
 
         # TODO figure out why popen isn't working
-        # timeout_flag = self.net.popen(self.net.h1, cmd, background=False,
+        # logfile = self.logfile(self.client)
+        # timeout_flag = self.net.popen(self.client, cmd, background=False,
         #     console_logger=DEBUG, logfile=logfile, func=parse_result,
         #     timeout=timeout, raise_error=False)
 
@@ -146,10 +199,10 @@ class PicoQUICBenchmark(Benchmark):
         else:
             return (HTTP_OK_STATUSCODE, result[0])
 
-    def run(self, num_trials, timeout, network_statistics):
+    def run(self, num_trials: int, timeout: Optional[int], network_statistics: bool):
 
         # Start the server
-        self.start_server(logfile=f'{self.logdir}/{SERVER_LOGFILE}')
+        self.start_server()
 
         # Initialize remaining trials
         num_trials_left = num_trials
@@ -171,15 +224,12 @@ class PicoQUICBenchmark(Benchmark):
             while num_trials_left > 0 and total_time_s < LOG_CHUNK_TIME:
                 result.append_new_output()
                 self.net.reset_statistics()
-                output = self.run_client(
-                    logfile=f'{self.logdir}/{CLIENT_LOGFILE}',
-                    timeout=timeout,
-                )
+                output = self.run_client(timeout=timeout)
 
                 # Error
                 if output is None:
                     ERROR('no output')
-                    self.restart_server(f'{self.logdir}/{SERVER_LOGFILE}')
+                    self.restart_server()
                     num_errors_left -= 1
                     if num_errors_left == 0:
                         num_trials_left = 0
@@ -203,20 +253,20 @@ class CloudflareQUICBenchmark(Benchmark):
                  cca: str, certfile: str, keyfile: str, pep: bool=False):
         super().__init__(net, Protocol.CLOUDFLARE_QUIC, label, logdir, n, cca,
                          certfile, keyfile, pep)
-        self.server_ip = self.net.h2.IP()
 
-    def restart_server(self, logfile):
+    def restart_server(self):
         WARN('Restarting quiche-server')
-        self.net.h2.cmd('killall quiche-server')
+        self.server.cmd('killall quiche-server')
+        logfile = self.logfile(self.server)
         self.start_server(logfile=logfile)
 
-    def start_server(self, logfile):
+    def start_server(self, timeout: int=SETUP_TIMEOUT):
         base = 'deps/quiche/target/release'
         cmd = f'./{base}/quiche-server '\
               f'--cert={self.certfile} '\
               f'--key={self.keyfile} '\
               f'--cc-algorithm {self.cca} ' \
-              f'--listen {self.server_ip}:4433'
+              f'--listen {self.server.IP()}:4433'
 
         condition = threading.Condition()
         def notify_when_ready(line):
@@ -227,14 +277,15 @@ class CloudflareQUICBenchmark(Benchmark):
         # The start_server() function blocks until the server is ready to
         # accept client requests. That is, when we observe the 'Serving'
         # string in the server output.
-        self.net.popen(self.net.h2, cmd, background=True,
+        logfile = self.logfile(self.server)
+        self.net.popen(self.server, cmd, background=True,
             console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
         with condition:
-            notified = condition.wait(timeout=SETUP_TIMEOUT)
+            notified = condition.wait(timeout=timeout)
             if not notified:
-                raise TimeoutError(f'start_server timeout {SETUP_TIMEOUT}s')
+                raise TimeoutError(f'start_server timeout {timeout}s')
 
-    def run_client(self, logfile, timeout) -> Optional[Tuple[int, float]]:
+    def run_client(self, timeout: Optional[int]=None) -> Optional[Tuple[int, float]]:
         """Returns the status code and runtime (seconds) of the GET request.
         """
         base = 'deps/quiche/target/release'
@@ -242,7 +293,7 @@ class CloudflareQUICBenchmark(Benchmark):
               f'--no-verify '\
               f'--method GET '\
               f'--cc-algorithm {self.cca} ' \
-              f'-- https://{self.server_ip}:4433/{self.n}'
+              f'-- https://{self.server.IP()}:4433/{self.n}'
 
         result = []
         timed_out = False
@@ -260,8 +311,8 @@ class CloudflareQUICBenchmark(Benchmark):
             except:
                 pass
 
-
-        timeout_flag = self.net.popen(self.net.h1, cmd, background=False,
+        logfile = self.logfile(self.client)
+        timeout_flag = self.net.popen(self.client, cmd, background=False,
             console_logger=DEBUG, logfile=logfile, func=parse_result,
             timeout=timeout, raise_error=False)
 
@@ -281,12 +332,12 @@ class CloudflareQUICBenchmark(Benchmark):
         else:
             return (HTTP_OK_STATUSCODE, result[0])
 
-    def run(self, num_trials, timeout, network_statistics):
+    def run(self, num_trials: int, timeout: Optional[int], network_statistics: bool):
         # Required outputs are in INFO logs
         os.environ['RUST_LOG'] = 'info'
 
         # Start the server
-        self.start_server(logfile=f'{self.logdir}/{SERVER_LOGFILE}')
+        self.start_server()
 
         # Initialize remaining trials
         num_trials_left = num_trials
@@ -308,15 +359,12 @@ class CloudflareQUICBenchmark(Benchmark):
             while num_trials_left > 0 and total_time_s < LOG_CHUNK_TIME:
                 result.append_new_output()
                 self.net.reset_statistics()
-                output = self.run_client(
-                    logfile=f'{self.logdir}/{CLIENT_LOGFILE}',
-                    timeout=timeout,
-                )
+                output = self.run_client(timeout=timeout)
 
                 # Error
                 if output is None:
                     ERROR('no output')
-                    self.restart_server(f'{self.logdir}/{SERVER_LOGFILE}')
+                    self.restart_server()
                     num_errors_left -= 1
                     if num_errors_left == 0:
                         num_trials_left = 0
@@ -340,7 +388,6 @@ class GoogleQUICBenchmark(Benchmark):
                  cca: str, certfile: str, keyfile: str, pep: bool=False):
         super().__init__(net, Protocol.GOOGLE_QUIC, label, logdir, n, cca,
                          certfile, keyfile, pep)
-        self.server_ip = self.net.h2.IP()
 
         # Create cache dir
         # self.cache_dir = '/tmp/quic-data/www.example.org'
@@ -348,7 +395,7 @@ class GoogleQUICBenchmark(Benchmark):
         # net.popen(None, f'mkdir -p {self.cache_dir}', console_logger=DEBUG)
         # net.popen(None, f'head -c {n} /dev/urandom > {filename}', console_logger=DEBUG)
 
-    def start_server(self, logfile):
+    def start_server(self, timeout: int=SETUP_TIMEOUT):
         base = 'deps/chromium/src'
         cmd = f'./{base}/out/Default/quic_server '\
               f'--certificate_file={self.certfile} '\
@@ -364,20 +411,21 @@ class GoogleQUICBenchmark(Benchmark):
         # The start_server() function blocks until the server is ready to
         # accept client requests. That is, when we observe the 'Serving'
         # string in the server output.
-        self.net.popen(self.net.h2, cmd, background=True,
+        logfile = self.logfile(self.server)
+        self.net.popen(self.server, cmd, background=True,
             console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
         with condition:
-            notified = condition.wait(timeout=SETUP_TIMEOUT)
+            notified = condition.wait(timeout=timeout)
             if not notified:
-                raise TimeoutError(f'start_server timeout {SETUP_TIMEOUT}s')
+                raise TimeoutError(f'start_server timeout {timeout}s')
 
-    def run_client(self, logfile, timeout) -> Optional[Tuple[int, float]]:
+    def run_client(self, timeout: Optional[int]=None) -> Optional[Tuple[int, float]]:
         """Returns the status code and runtime (seconds) of the GET request.
         """
         base = 'deps/chromium/src'
         cmd = f'./{base}/out/Default/quic_client '\
               f'--allow_unknown_root_cert '\
-              f'--host={self.net.h2.IP()} --port=6121 '\
+              f'--host={self.server.IP()} --port=6121 '\
               f'https://www.example.org/{self.n} '
 
         # Add the congestion control algorithm options
@@ -407,7 +455,8 @@ class GoogleQUICBenchmark(Benchmark):
             except:
                 pass
 
-        timeout_flag = self.net.popen(self.net.h1, cmd, background=False,
+        logfile = self.logfile(self.client)
+        timeout_flag = self.net.popen(self.client, cmd, background=False,
             console_logger=DEBUG, logfile=logfile, func=parse_result,
             timeout=timeout)
         if timeout_flag:
@@ -420,9 +469,9 @@ class GoogleQUICBenchmark(Benchmark):
         else:
             return result[0]
 
-    def run(self, num_trials, timeout, network_statistics):
+    def run(self, num_trials: int, timeout: Optional[int], network_statistics: bool):
         # Start the server
-        self.start_server(logfile=f'{self.logdir}/{SERVER_LOGFILE}')
+        self.start_server()
 
         # Initialize remaining trials
         num_trials_left = num_trials
@@ -442,10 +491,7 @@ class GoogleQUICBenchmark(Benchmark):
             while num_trials_left > 0 and total_time_s < LOG_CHUNK_TIME:
                 result.append_new_output()
                 self.net.reset_statistics()
-                output = self.run_client(
-                    logfile=f'{self.logdir}/{CLIENT_LOGFILE}',
-                    timeout=timeout,
-                )
+                output = self.run_client(timeout=timeout)
 
                 # Error
                 if output is None:
@@ -473,10 +519,9 @@ class LinuxTCPBenchmark(Benchmark):
         super().__init__(net, Protocol.LINUX_TCP, label, logdir, n, cca,
                          certfile, keyfile, pep)
         net.set_tcp_congestion_control(cca)
-        self.server_ip = self.net.h2.IP()
 
-    def start_server(self, logfile):
-        cmd = f'python3 webserver/http_server.py --server-ip {self.server_ip} '\
+    def start_server(self, timeout: int=SETUP_TIMEOUT):
+        cmd = f'python3 webserver/http_server.py --server-ip {self.server.IP()} '\
               f'--certfile {self.certfile} --keyfile {self.keyfile} '\
               f'-n {self.n}'
 
@@ -489,17 +534,18 @@ class LinuxTCPBenchmark(Benchmark):
         # The start_server() function blocks until the server is ready to
         # accept client requests. That is, when we observe the 'Serving'
         # string in the server output.
-        self.net.popen(self.net.h2, cmd, background=True,
+        logfile = self.logfile(self.server)
+        self.net.popen(self.server, cmd, background=True,
             console_logger=DEBUG, logfile=logfile, func=notify_when_ready)
         with condition:
-            notified = condition.wait(timeout=SETUP_TIMEOUT)
+            notified = condition.wait(timeout=timeout)
             if not notified:
-                raise TimeoutError(f'start_server timeout {SETUP_TIMEOUT}s')
+                raise TimeoutError(f'start_server timeout {timeout}s')
 
-    def run_client(self, logfile, timeout) -> Optional[Tuple[int, float]]:
+    def run_client(self, timeout: Optional[int]=None) -> Optional[Tuple[int, float]]:
         """Returns the status code and runtime (seconds) of the GET request.
         """
-        cmd = f'python3 webserver/http_client.py --server-ip {self.server_ip} '\
+        cmd = f'python3 webserver/http_client.py --server-ip {self.server.IP()} '\
               f'-n {self.n}'
 
         result = []
@@ -517,7 +563,8 @@ class LinuxTCPBenchmark(Benchmark):
             except:
                 pass
 
-        timeout_flag = self.net.popen(self.net.h1, cmd, background=False,
+        logfile = self.logfile(self.client)
+        timeout_flag = self.net.popen(self.client, cmd, background=False,
             console_logger=DEBUG, logfile=logfile, func=parse_result,
             timeout=timeout)
         if timeout_flag:
@@ -529,9 +576,9 @@ class LinuxTCPBenchmark(Benchmark):
         else:
             return result[0]
 
-    def run(self, num_trials, timeout, network_statistics):
+    def run(self, num_trials: int, timeout: Optional[int], network_statistics: bool):
         # Start the server
-        self.start_server(logfile=f'{self.logdir}/{SERVER_LOGFILE}')
+        self.start_server()
 
         # Initialize remaining trials
         num_trials_left = num_trials
@@ -551,10 +598,7 @@ class LinuxTCPBenchmark(Benchmark):
             while num_trials_left > 0 and total_time_s < LOG_CHUNK_TIME:
                 result.append_new_output()
                 self.net.reset_statistics()
-                output = self.run_client(
-                    logfile=f'{self.logdir}/{CLIENT_LOGFILE}',
-                    timeout=timeout,
-                )
+                output = self.run_client(timeout=timeout)
 
                 # Error
                 if output is None:
