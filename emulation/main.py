@@ -8,11 +8,6 @@ from mininet.cli import CLI
 from mininet.log import setLogLevel
 
 
-DEFAULT_SSL_CERTFILE = f'deps/certs/out/leaf_cert.pem'
-DEFAULT_SSL_KEYFILE_QUIC = f'deps/certs/out/leaf_cert.pkcs8'
-DEFAULT_SSL_KEYFILE_TCP = f'deps/certs/out/leaf_cert.key'
-
-
 def benchmark_tcp(net, args):
     assert not (args.topology == 'direct' and args.pep)
     bm = TCPBenchmark(
@@ -79,21 +74,6 @@ def benchmark_picoquic(net, args):
         args.timeout,
         args.network_statistics,
     )
-
-def parse_data_size(n):
-    try:
-        multiplier = 1
-        if 'K' in n:
-            multiplier = 1000
-        elif 'M' in n:
-            multiplier = 1000000
-        elif 'G' in n:
-            multiplier = 1000000000
-        else:
-            return int(n)
-        return multiplier * int(n[:-1])
-    except Exception:
-        raise ValueError(f'invalid data size {n}')
 
 if __name__ == '__main__':
     setLogLevel('info')
@@ -169,7 +149,7 @@ if __name__ == '__main__':
         help='Congestion control algorithm at endpoints')
     tcp.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
         help='Path to SSL certificate')
-    tcp.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_TCP,
+    tcp.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE,
         help='Path to SSL key')
 
     ###########################################################################
@@ -188,7 +168,7 @@ if __name__ == '__main__':
         help='Congestion control algorithm at endpoints')
     google.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
         help='Path to SSL certificate')
-    google.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_QUIC,
+    google.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_GOOGLE,
         help='Path to SSL key')
 
     ###########################################################################
@@ -207,7 +187,7 @@ if __name__ == '__main__':
         help='Congestion control algorithm at endpoints')
     cloudflare.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
         help='Path to SSL certificate')
-    cloudflare.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_TCP,
+    cloudflare.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE,
         help='Path to SSL key')
 
     ###########################################################################
@@ -226,7 +206,7 @@ if __name__ == '__main__':
         help='Congestion control algorithm at endpoints')
     picoquic.add_argument('--certfile', type=str, default=DEFAULT_SSL_CERTFILE,
         help='Path to SSL certificate')
-    picoquic.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE_TCP,
+    picoquic.add_argument('--keyfile', type=str, default=DEFAULT_SSL_KEYFILE,
         help='Path to SSL key')
 
     args = parser.parse_args()

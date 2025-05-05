@@ -19,22 +19,6 @@ class EmulatedNetwork:
         # Keep track of background processes for cleanup
         self.background_processes = []
 
-    @staticmethod
-    def _mac(digit):
-        assert 0 <= digit < 10
-        return f'00:00:00:00:00:0{int(digit)}'
-
-    @staticmethod
-    def _ip(digit):
-        assert 0 <= digit < 10
-        return f'172.16.{int(digit)}.10/24'
-
-    @staticmethod
-    def _calculate_bdp(delay1, delay2, bw1, bw2):
-        rtt_ms = 2 * (delay1 + delay2)
-        bw_mbps = min(bw1, bw2)
-        return rtt_ms * bw_mbps * 1000000. / 1000. / 8.
-
     def _config_iface(self, iface, netem: bool, pacing: bool=False,
                       delay=None, loss=None, bw=None, bdp=None, qdisc=None,
                       gso=True, tso=True, jitter=None):
@@ -311,10 +295,8 @@ class OneHopNetwork(EmulatedNetwork):
         super().__init__()
 
         # Add hosts, switches, and network emulation nodes
-        self.h1 = self.net.addHost('h1', ip=self._ip(1),
-                                   mac=self._mac(1))
-        self.h2 = self.net.addHost('h2', ip=self._ip(2),
-                                   mac=self._mac(2))
+        self.h1 = self.net.addHost('h1', ip='172.16.1.10/24', mac=mac(1))
+        self.h2 = self.net.addHost('h2', ip='172.16.2.10/24', mac=mac(2))
         self.r1 = self.net.addHost('r1')
         self.e1 = self.net.addHost('e1')
         self.e2 = self.net.addHost('e2')
@@ -363,7 +345,7 @@ class OneHopNetwork(EmulatedNetwork):
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
         rtt = 2 * (delay1 + delay2)
-        bdp = self._calculate_bdp(delay1, delay2, bw1, bw2)
+        bdp = calculate_bdp(delay1, delay2, bw1, bw2)
         self._config_iface('h1-eth0', False, pacing)
         self._config_iface('r1-eth0', False, pacing)
         self._config_iface('r1-eth1', False, pacing)
@@ -383,10 +365,8 @@ class DirectNetwork(EmulatedNetwork):
         super().__init__()
 
         # Add hosts and switches
-        self.h1 = self.net.addHost('h1', ip=self._ip(1),
-                                   mac=self._mac(1))
-        self.h2 = self.net.addHost('h2', ip=self._ip(2),
-                                   mac=self._mac(2))
+        self.h1 = self.net.addHost('h1', ip='172.16.1.10/24', mac=mac(1))
+        self.h2 = self.net.addHost('h2', ip='172.16.2.10/24', mac=mac(2))
         self.e1 = self.net.addHost('e1')
 
         # Add link
@@ -413,7 +393,7 @@ class DirectNetwork(EmulatedNetwork):
 
         # Configure link latency, delay, bandwidth, and queue size
         # https://unix.stackexchange.com/questions/100785/bucket-size-in-tbf
-        bdp = self._calculate_bdp(delay, 0, bw, bw)
+        bdp = calculate_bdp(delay, 0, bw, bw)
         rtt = 2 * delay
         self._config_iface('h1-eth0', False, pacing)
         self._config_iface('h2-eth0', False, pacing)
