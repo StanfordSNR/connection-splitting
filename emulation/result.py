@@ -1,14 +1,13 @@
 import json
 from datetime import datetime
-from benchmark import Protocol
 
 
 class BenchmarkResult:
-    def __init__(self, label: str, protocol: Protocol,
+    def __init__(self, label: str, protocol: str,
                  data_size: int, cca: str, pep: bool):
         self.inputs = {
             'label': label,
-            'protocol': protocol.name,
+            'protocol': protocol,
             'num_trials': 0,
             'start_time': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             'data_size': data_size,

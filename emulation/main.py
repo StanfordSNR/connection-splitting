@@ -172,10 +172,11 @@ if __name__ == '__main__':
                 keyfile=args.keyfile,
                 pep=args.pep,
             )
-            bm.run(
+            result = bm.run_benchmark(
                 args.trials,
                 args.timeout,
                 args.network_statistics,
             )
+            result.print()
     finally:
         net.stop()
