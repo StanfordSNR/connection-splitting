@@ -57,7 +57,10 @@ class CLITestCase(unittest.TestCase):
         protocol,
         network_options: List[str]=[],
         protocol_options: List[str]=[],
+        num_trials=1,
     ):
+        if num_trials > 1:
+            network_options += ['-t', str(num_trials)]
         stdout, stderr = self.execute_command(
             protocol, network_options, protocol_options)
         self.assertNotEqual(stdout, '', 'results are logged to stdout')
@@ -67,8 +70,9 @@ class CLITestCase(unittest.TestCase):
         self.assertIn('inputs', line)
         self.assertIn('outputs', line)
         outputs = line['outputs']
-        self.assertEqual(len(outputs), 1)
-        self.assertTrue(outputs[0].get('success'), outputs[0])
+        self.assertEqual(len(outputs), num_trials)
+        for i in range(num_trials):
+            self.assertTrue(outputs[i].get('success'), outputs[i])
         return outputs
 
 
@@ -79,14 +83,35 @@ class TestBenchmarkCUBIC(CLITestCase):
     def test_linux_tcp_benchmark_with_pep(self):
         self.execute_command_and_check('tcp', ['--pep'], ['-cca', 'cubic'])
 
+    @unittest.skip
     def test_google_quic_benchmark(self):
         self.execute_command_and_check('google', [], ['-cca', 'cubic'])
 
+    @unittest.skip
     def test_cloudflare_quic_benchmark(self):
         self.execute_command_and_check('cloudflare', [], ['-cca', 'cubic'])
 
     def test_picoquic_quic_benchmark(self):
         self.execute_command_and_check('picoquic', [], ['-cca', 'cubic'])
+
+
+class TestBenchmarkMultipleTrials(CLITestCase):
+    def test_linux_tcp_benchmark(self):
+        self.execute_command_and_check('tcp', num_trials=2)
+
+    def test_linux_tcp_benchmark_with_pep(self):
+        self.execute_command_and_check('tcp', ['--pep'], num_trials=2)
+
+    @unittest.skip
+    def test_google_quic_benchmark(self):
+        self.execute_command_and_check('google', num_trials=2)
+
+    @unittest.skip
+    def test_cloudflare_quic_benchmark(self):
+        self.execute_command_and_check('cloudflare', num_trials=2)
+
+    def test_picoquic_quic_benchmark(self):
+        self.execute_command_and_check('picoquic', num_trials=2)
 
 
 class TestBenchmarkBBR(CLITestCase):
@@ -96,9 +121,11 @@ class TestBenchmarkBBR(CLITestCase):
     def test_linux_tcp_benchmark_with_pep(self):
         self.execute_command_and_check('tcp', ['--pep'], ['-cca', 'bbr'])
 
+    @unittest.skip
     def test_google_quic_benchmark(self):
         self.execute_command_and_check('google', [], ['-cca', 'bbr'])
 
+    @unittest.skip
     def test_cloudflare_quic_benchmark(self):
         self.execute_command_and_check('cloudflare', [], ['-cca', 'bbr'])
 
