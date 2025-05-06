@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from experiment import TCPTreatment, QUICTreatment, CloudflareQUICTreatment, PicoQUICTreatment
 
-SIDEKICK_HOME = f'{os.environ["HOME"]}/sidekick-downloads'
+WORKDIR = f'{os.environ["HOME"]}/connection-splitting'
 
 TCP_CUBIC = TCPTreatment(cca='cubic', pep=False, label='tcp_cubic')
 TCP_BBRV1 = TCPTreatment(cca='bbr', pep=False, label='tcp_bbr1')

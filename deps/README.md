@@ -3,7 +3,7 @@
 ## Install a Linux kernel, if necessary.
 
 If evaluating TCP BBRv2 or BBRv3, follow the instructions in
-[BBRv3.md](https://github.com/ygina/sidekick-downloads/blob/main/deps/BBRV3.md)
+[BBRv3.md](https://github.com/StanfordSNR/connection-splitting/blob/main/deps/BBRV3.md)
 to install a fork of the Linux kernel with these congestion control modules.
 
 ## Install Linux dependencies.
@@ -25,15 +25,15 @@ sudo apt-get install -y libssl-dev  # picoquic
 Fetch the PEPsal source.
 
 ```
-export SIDEKICK_HOME=$HOME/sidekick-downloads
-cd $SIDEKICK_HOME/deps
+export WORKDIR=$HOME/connection-splitting
+cd $WORKDIR/deps
 git clone git@github.com:viveris/pepsal.git
 ```
 
 Build and install PEPsal.
 
 ```
-cd $SIDEKICK_HOME/deps
+cd $WORKDIR/deps
 ./build_deps.sh 1
 ```
 
@@ -44,7 +44,7 @@ Test that `pepsal` is on your path.
 Generate certificates using Chromium scripts.
 
 ```
-cd $SIDEKICK_HOME/deps/certs
+cd $WORKDIR/deps/certs
 ./generate-certs.sh
 mkdir -p "$HOME/.pki/nssdb"
 certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n web -i out/2048-sha256-root.pem
@@ -66,10 +66,10 @@ Skip this section if not running QUIC benchmarks. It takes around an hour.
 Fetch the Chromium source. (10 min)
 
 ```
-export SIDEKICK_HOME=$HOME/sidekick-downloads
-cd $SIDEKICK_HOME/deps
+export WORKDIR=$HOME/connection-splitting
+cd $WORKDIR/deps
 git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
-export PATH="$SIDEKICK_HOME/deps/depot_tools:$PATH"
+export PATH="$WORKDIR/deps/depot_tools:$PATH"
 update_depot_tools
 mkdir chromium
 cd chromium
@@ -78,24 +78,24 @@ fetch --nohooks --no-history chromium
 
 Checkout a specific tag and sync local diffs. (10 min)
 ```
-cd $SIDEKICK_HOME/deps/chromium/src
+cd $WORKDIR/deps/chromium/src
 git fetch https://chromium.googlesource.com/chromium/src.git +refs/tags/131.0.6728.1:chromium_131.0.6728.1 --depth 1
 git checkout tags/131.0.6728.1
 gclient sync -D
 gclient sync --with_branch_heads
 gclient runhooks
-rsync -av $SIDEKICK_HOME/deps/chromium_diff/ $SIDEKICK_HOME/deps/chromium/
+rsync -av $WORKDIR/deps/chromium_diff/ $WORKDIR/deps/chromium/
 ```
 
 Install Chromium dependencies. (10 min)
 ```
-cd $SIDEKICK_HOME/deps/chromium/src
+cd $WORKDIR/deps/chromium/src
 ./build/install-build-deps.sh
 ```
 
 Build Chromium. (10 min)
 ```
-cd $SIDEKICK_HOME/deps/chromium/src
+cd $WORKDIR/deps/chromium/src
 gn gen out/Default
 ninja -C out/Default quic_server quic_client
 ```
@@ -120,7 +120,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 This is a fork of quiche at a new (as of January 2025) tagged release (0.22.0). The quiche library is unchanged, but the sample quiche-server has been modified to expect a URI from the client of the form "/N", where N is the number of bytes it will generate and return.
 
 ```
-cd $SIDEKICK_HOME/deps
+cd $WORKDIR/deps
 git clone --recursive https://github.com/thearossman/quiche.git
 ./build_deps.sh 3
 ```
@@ -138,7 +138,7 @@ See the section on generating certificates under "TCP Benchmarks".
 This is a fork of picoquic on the main branch as of January 2024. The picoquic library is unchanged, but the sample server has been modified to always return N bytes, regardless of the client request, where N is an argument provided by the CLI.
 
 ```
-cd $SIDEKICK_HOME/deps
+cd $WORKDIR/deps
 git clone --recursive https://github.com/thearossman/picoquic
 ./build_deps.sh 4
 ```

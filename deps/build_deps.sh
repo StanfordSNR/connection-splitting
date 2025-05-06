@@ -12,11 +12,11 @@ if [ $# -ne 1 ]; then
 	help
 fi
 
-export SIDEKICK_HOME=$HOME/sidekick-downloads
-export PATH="$SIDEKICK_HOME/deps/depot_tools:$PATH"
+export WORKDIR=$HOME/connection-splitting
+export PATH="$WORKDIR/deps/depot_tools:$PATH"
 
 build_pepsal () {
-cd $SIDEKICK_HOME/deps/pepsal
+cd $WORKDIR/deps/pepsal
 autoupdate
 autoreconf --install
 autoconf
@@ -26,28 +26,27 @@ sudo make install
 }
 
 build_quiche() {
-cd $SIDEKICK_HOME/deps/quiche
+cd $WORKDIR/deps/quiche
 git checkout v-0.22.0
 cargo build --release --bin quiche-client
 cargo build --release --bin quiche-server
 }
 
 build_chromium () {
-cd $SIDEKICK_HOME/deps/chromium/src
+cd $WORKDIR/deps/chromium/src
 gclient runhooks
 gn gen out/Default
 ninja -C out/Default quic_server quic_client
 }
 
 build_picoquic () {
-	cd $SIDEKICK_HOME/deps/picoquic
+	cd $WORKDIR/deps/picoquic
 	cmake -DPICOQUIC_FETCH_PTLS=Y .
 	cmake --build .
 }
 
 if [ $1 == "all" ]; then
 	build_pepsal
-	build_sidekick
 	build_chromium
 	build_quiche
 	build_picoquic
