@@ -90,16 +90,13 @@ class NetworkSetting:
         'loss2': '0',
         'bw1': 100,
         'bw2': 10,
-        'jitter1': None,
-        'jitter2': None,
         'qdisc': None,
     }
 
     def __init__(self, delay1: Optional[int]=None, delay2: Optional[int]=None,
                  loss1: Optional[str]=None, loss2: Optional[str]=None,
                  bw1: Optional[int]=None, bw2: Optional[int]=None,
-                 qdisc: Optional[str]=None,
-                 jitter1: Optional[int]=None, jitter2: Optional[int]=None):
+                 qdisc: Optional[str]=None):
         """
         Labels is a list of setting names that are different from default.
         """
@@ -110,8 +107,6 @@ class NetworkSetting:
             'loss2': loss2,
             'bw1': bw1,
             'bw2': bw2,
-            'jitter1': jitter1,
-            'jitter2': jitter2,
         }
         if qdisc is not None:
             self.settings['qdisc'] = qdisc
@@ -143,8 +138,6 @@ class NetworkSetting:
             bw1=self.settings['bw2'],
             bw2=self.settings['bw1'],
             qdisc=self.settings.get('qdisc'),
-            jitter1=self.settings['jitter2'],
-            jitter2=self.settings['jitter1'],
         )
 
     def clone(self):
@@ -163,11 +156,9 @@ class NetworkSetting:
 
 class DirectNetworkSetting(NetworkSetting):
     def __init__(self, delay: Optional[int]=None, loss: Optional[str]=None,
-                 bw: Optional[int]=None, qdisc: Optional[str]=None,
-                 jitter: Optional[int]=None):
-        super().__init__(delay1=delay, loss1=loss, bw1=bw, qdisc=qdisc,
-                         jitter1=jitter)
-        for key in ['delay2', 'loss2', 'bw2', 'jitter2']:
+                 bw: Optional[int]=None, qdisc: Optional[str]=None):
+        super().__init__(delay1=delay, loss1=loss, bw1=bw, qdisc=qdisc)
+        for key in ['delay2', 'loss2', 'bw2']:
             del self.settings[key]
         self.settings['topology'] = 'direct'
         self.labels.append('topology')
