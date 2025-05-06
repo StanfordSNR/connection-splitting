@@ -12,7 +12,7 @@ class Treatment:
         raise NotImplementedError
 
 
-class TCPTreatment(Treatment):
+class LinuxTCPTreatment(Treatment):
     def __init__(self, cca: str='cubic', pep: bool=False,
                  label: Optional[str]=None):
         super().__init__(protocol='tcp')
@@ -29,9 +29,9 @@ class TCPTreatment(Treatment):
         return self._label
 
 
-class QUICTreatment(Treatment):
+class GoogleQUICTreatment(Treatment):
     def __init__(self, cca: str='cubic', label: Optional[str]=None):
-        super().__init__(protocol='quic')
+        super().__init__(protocol='google')
         self.cca = cca
         if label is not None:
             self._label = label
@@ -40,10 +40,11 @@ class QUICTreatment(Treatment):
 
     def label(self) -> str:
         return self._label
+
 
 class CloudflareQUICTreatment(Treatment):
     def __init__(self, cca: str='cubic', label: Optional[str]=None):
-        super().__init__(protocol='quiche')
+        super().__init__(protocol='cloudflare')
         self.cca = cca
         if label is not None:
             self._label = label
@@ -52,6 +53,7 @@ class CloudflareQUICTreatment(Treatment):
 
     def label(self) -> str:
         return self._label
+
 
 class PicoQUICTreatment(Treatment):
     def __init__(self, cca: str='cubic', label: Optional[str]=None):
@@ -144,7 +146,7 @@ class DirectNetworkSetting(NetworkSetting):
         super().__init__(delay1=delay, loss1=loss, bw1=bw, qdisc=qdisc)
         for key in ['delay2', 'loss2', 'bw2']:
             del self.settings[key]
-        self.settings['topology'] = 'direct'
+        self.settings['topology'] = 'one_segment'
         self.labels.append('topology')
         self.labels.sort()
 

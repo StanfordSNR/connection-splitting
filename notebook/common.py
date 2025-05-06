@@ -2,24 +2,27 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
-from experiment import TCPTreatment, QUICTreatment, CloudflareQUICTreatment, PicoQUICTreatment
+from experiment import (
+    LinuxTCPTreatment, GoogleQUICTreatment,
+    CloudflareQUICTreatment, PicoQUICTreatment,
+)
 
 WORKDIR = f'{os.environ["HOME"]}/connection-splitting'
 
-TCP_CUBIC = TCPTreatment(cca='cubic', pep=False, label='tcp_cubic')
-TCP_BBRV1 = TCPTreatment(cca='bbr', pep=False, label='tcp_bbr1')
-TCP_BBRV2 = TCPTreatment(cca='bbr2', pep=False, label='tcp_bbr2')
-TCP_BBRV3 = TCPTreatment(cca='bbr', pep=False, label='tcp_bbr3')
-TCP_RENO = TCPTreatment(cca='reno', pep=False, label='tcp_reno')
-PEP_CUBIC = TCPTreatment(cca='cubic', pep=True, label='pep_cubic')
-PEP_BBRV1 = TCPTreatment(cca='bbr', pep=True, label='pep_bbr1')
-PEP_BBRV2 = TCPTreatment(cca='bbr2', pep=True, label='pep_bbr2')
-PEP_BBRV3 = TCPTreatment(cca='bbr', pep=True, label='pep_bbr3')
-PEP_RENO = TCPTreatment(cca='reno', pep=True, label='pep_reno')
-QUIC_CUBIC = QUICTreatment(cca='cubic', label='quic_cubic')
-QUIC_BBRV1 = QUICTreatment(cca='bbr1', label='quic_bbr1')
-QUIC_BBRV3 = QUICTreatment(cca='bbr', label='quic_bbr3')
-QUIC_RENO = QUICTreatment(cca='reno', label='quic_reno')
+TCP_CUBIC = LinuxTCPTreatment(cca='cubic', pep=False, label='tcp_cubic')
+TCP_BBRV1 = LinuxTCPTreatment(cca='bbr', pep=False, label='tcp_bbr1')
+TCP_BBRV2 = LinuxTCPTreatment(cca='bbr2', pep=False, label='tcp_bbr2')
+TCP_BBRV3 = LinuxTCPTreatment(cca='bbr', pep=False, label='tcp_bbr3')
+TCP_RENO = LinuxTCPTreatment(cca='reno', pep=False, label='tcp_reno')
+PEP_CUBIC = LinuxTCPTreatment(cca='cubic', pep=True, label='pep_cubic')
+PEP_BBRV1 = LinuxTCPTreatment(cca='bbr', pep=True, label='pep_bbr1')
+PEP_BBRV2 = LinuxTCPTreatment(cca='bbr2', pep=True, label='pep_bbr2')
+PEP_BBRV3 = LinuxTCPTreatment(cca='bbr', pep=True, label='pep_bbr3')
+PEP_RENO = LinuxTCPTreatment(cca='reno', pep=True, label='pep_reno')
+QUIC_CUBIC = GoogleQUICTreatment(cca='cubic', label='quic_cubic')
+QUIC_BBRV1 = GoogleQUICTreatment(cca='bbr1', label='quic_bbr1')
+QUIC_BBRV3 = GoogleQUICTreatment(cca='bbr', label='quic_bbr3')
+QUIC_RENO = GoogleQUICTreatment(cca='reno', label='quic_reno')
 QUICHE_CUBIC = CloudflareQUICTreatment(cca='cubic', label='quiche_cubic')
 QUICHE_BBRV1 = CloudflareQUICTreatment(cca='bbr', label='quiche_bbr1')
 QUICHE_BBRV2 = CloudflareQUICTreatment(cca='bbr', label='quiche_bbr2')
