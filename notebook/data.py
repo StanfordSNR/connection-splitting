@@ -59,9 +59,9 @@ class RawDataFile:
         cmd.append('--label')
         cmd.append(self._treatment.label())
         protocol = self._treatment.protocol
-        cmd.append(protocol)
         if protocol == 'tcp' and self._treatment.pep:
             cmd.append('--pep')
+        cmd.append(protocol)
         if self._treatment.cca:
             cmd.append('-cca')
             cmd.append(self._treatment.cca)
