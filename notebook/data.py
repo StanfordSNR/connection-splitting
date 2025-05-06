@@ -9,10 +9,10 @@ import sys
 from collections import defaultdict
 from typing import List, Tuple, Dict, Optional
 
-from common import SIDEKICK_HOME
+from common import WORKDIR
 from experiment import Treatment, NetworkSetting, DirectNetworkSetting, Experiment
 
-DEFAULT_DATA_HOME = f'{SIDEKICK_HOME}/data'
+DEFAULT_DATA_HOME = f'{WORKDIR}/data'
 
 
 class RawDataFile:
@@ -212,7 +212,7 @@ class RawDataExecutor:
             cmd.split(' '),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            cwd=SIDEKICK_HOME,
+            cwd=WORKDIR,
             text=True,
         )
 
@@ -270,7 +270,7 @@ class RawData(RawDataParser, RawDataExecutor):
           that index. Used to avoid collecting data points with unreasonably
           low throughput. If labels are not provided, defaults to all data
           sizes.
-        - data_suffix: The suffix of the directory to {SIDEKICK_HOME}/data in
+        - data_suffix: The suffix of the directory to {WORKDIR}/data in
           which to parse raw data.
         """
         if len(data_suffix) > 0:
@@ -323,7 +323,7 @@ class DirectRawData(RawDataParser, RawDataExecutor):
         - execute: Whether to collect missing data points.
         - max_retries: Maximum number of times to retry collecting missing data
           points after the first attempt.
-        - data_suffix: The suffix of the directory to {SIDEKICK_HOME}/data in
+        - data_suffix: The suffix of the directory to {WORKDIR}/data in
           which to parse raw data.
         """
         if len(data_suffix) > 0:
