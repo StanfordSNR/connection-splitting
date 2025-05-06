@@ -146,7 +146,7 @@ class DirectNetworkSetting(NetworkSetting):
         super().__init__(delay1=delay, loss1=loss, bw1=bw, qdisc=qdisc)
         for key in ['delay2', 'loss2', 'bw2']:
             del self.settings[key]
-        self.settings['topology'] = 'one_segment'
+        self.settings['topology'] = 'direct'
         self.labels.append('topology')
         self.labels.sort()
 

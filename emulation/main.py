@@ -30,7 +30,7 @@ if __name__ == '__main__':
     exp_config.add_argument('--network-statistics', action='store_true',
         help='Include measured network statistics in experiment output')
     exp_config.add_argument('--topology',
-        choices=['one_segment', 'two_segment'], default='two_segment',
+        choices=['direct', 'two_segment'], default='two_segment',
         help='Network topology to use. If "one_segment", uses the network '\
              'path properties for the "near path segment" i.e. Link 1.')
     exp_config.add_argument('--pep', action='store_true',
@@ -149,7 +149,7 @@ if __name__ == '__main__':
             args.loss1, args.loss2, args.bw1, args.bw2, args.qdisc, pacing)
         if args.pep:
             net.start_tcp_pep(logdir=args.logdir)
-    elif args.topology == 'one_segment':
+    elif args.topology == 'direct':
         assert not args.pep
         net = OneSegmentNetwork(args.delay1, args.loss1, args.bw1,
             args.qdisc, pacing)
