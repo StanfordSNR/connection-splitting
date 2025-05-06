@@ -1,25 +1,15 @@
-# Measurement Study
-
-The measurement study consists of two parts:
-
-1. Characterize various congestion control schemes in a wide parameter space of
-_end-to-end_ network settings.
-2. Apply the split throughput heuristic to analyze these congestion control
-schemes in various _split_ network settings.
-
-We also measure congestion control schemes in settings with a real TCP PEP and
-evaluate the accuracy of the split throughput heuristic.
-
-The "Setup" and "Figure 1" instructions setup the Jupyter notebook
-environment for data collection and analysis, and replicate the results in
-Figure 1.
+# notebook
 
 ## Setup
 
 The instructions assume your working directory is `~/connection-splitting`. The
 raw data from emulation benchmarks is written to `~/connection-splitting/data`.
 Automated benchmark execution, data analysis, and plotting is all done in
-Jupyter notebooks.
+Jupyter notebooks. Make a directory for generating PDF figures:
+
+```
+mkdir notebook/output/
+```
 
 ### Python dependencies
 
@@ -60,6 +50,4 @@ In the local machine, copy and paste the URL as instructed:
 http://localhost:8888/tree?token=<TOKEN>
 ```
 
-Click `data_analysis.ipynb` or a different notebook.
-
-## Figure 1
+Click `parameter_exploration.ipynb` or a different notebook.

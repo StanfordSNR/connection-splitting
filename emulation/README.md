@@ -13,7 +13,7 @@ algorithm for the transport protocol implementation. For all options, see:
 sudo -E python3 emulation/main.py --help
 ```
 
-## Getting Started
+## Example
 
 This is a simple example of a 10 MB data transfer using Linux TCP + CUBIC. The
 default network configuration has loss on the near path segment, and we also
