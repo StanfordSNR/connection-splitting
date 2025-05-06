@@ -5,7 +5,11 @@
 The instructions assume your working directory is `~/connection-splitting`. The
 raw data from emulation benchmarks is written to `~/connection-splitting/data`.
 Automated benchmark execution, data analysis, and plotting is all done in
-Jupyter notebooks. Make a directory for generating PDF figures:
+Jupyter notebooks.
+
+### PDF output directory
+
+Make a directory for generating PDF figures:
 
 ```
 mkdir notebook/output/

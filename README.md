@@ -1,18 +1,20 @@
 # Internet Connection Splitting: What's Old is New Again
 
-This repository contains the artifact for the ATC '25 paper "Internet Connection
-Splitting: What's Old is New Again", by Gina Yuan, Thea Rossman, and Keith
-Winstein from Stanford University. The artifact consists of all the raw data
-from the paper, Jupyter notebooks for analyzing and plotting this data using
-the _split throughput heuristic_, and scripts for automating data collection
-for replicating the emulation experiments.
+This repository contains the artifact for the USENIX ATC '25 paper "Internet
+Connection Splitting: What's Old is New Again" by [Gina Yuan](https://www.ginayuan.com),
+[Thea Rossman](https://profiles.stanford.edu/thea-rossman), and
+[Keith Winstein](https://cs.stanford.edu/~keithw/) from Stanford University.
+The artifact consists of all the raw data from the paper, Jupyter notebooks for
+analyzing and plotting this data using the _split throughput heuristic_, and
+scripts for automating data collection for replicating the emulation
+experiments.
 
 ## Getting Started
 
 To get started with this artifact, we recommend exploring the Jupyter notebooks
-using the raw data from the paper. For further exploration, we then recommend
-running emulations yourself and replicating some of the results of the emulation
-throughput experiments.
+using the raw data. For further exploration, we then recommend running
+emulations and replicating some of the results of the emulation throughput
+experiments.
 
 ### Setup
 
@@ -25,17 +27,16 @@ prompts:
 ./deps/node0.sh
 ```
 
-The instructions assume your working directory is `~/connection-splitting`. The
-raw data from emulation benchmarks is written to `~/connection-splitting/data`.
-The Jupyter notebooks assume that the raw data is located at
-`~/connection-splitting/data`:
+The instructions assume your working directory is `~/connection-splitting`.
+The Jupyter notebooks read and write raw data to `~/connection-splitting/data`.
+Initialize this directory with raw data:
 
 ```
 tar xvf 2025-01-15-data.tar.gz
 ```
 
 Follow the instructions in [`notebook/`](https://github.com/StanfordSNR/connection-splitting/tree/main/notebook)
-to setup your Jupyter notebook kernel and access it from your local machine.
+to setup your Python kernel and access the notebook from your local machine.
 
 ### Explore notebooks
 
@@ -47,14 +48,17 @@ notebooks to regenerate the figures and analysis in the paper:
 	* Figure 5: Characterize QUIC congestion control schemes at 10 Mbit/s.
 	* Figures 8-12 in the Appendix: Heatmaps of the full parameter space.
 * `network_path_analysis.ipynb`
-	* Table 3: Apply the heuristic to analyze theoretical split settings.
-	* Figure 6: Apply the heuristic to reason about QUIC in split settings.
-	* Figure 1 (heuristic only): Identify marquee network settings for Figure 1.
-* `network_path_real_data.ipynb`: Figure 1
-* `accuracy_analysis.ipynb`: Figure 7
+	* Table 3: Apply the heuristic to analyze theoretical split settings - ***FINDING 2***.
+	* Figure 1 (heuristic only): Identify marquee network settings for Figure 1 - ***FINDING 1***.
+	* Figure 6: Apply the heuristic to reason about QUIC in split settings - ***FINDING 3***.
+* `network_path_real_data.ipynb` (optional)
+	* Figure 1: Marquee network settings where TCP BBRv3 benefits significantly from a real connection-splitting PEP.
+* `accuracy_analysis.ipynb` (optional)
+	* Figure 7: Heatmaps comparing measured and predicted split throughputs.
 
-The `network_path_analysis.ipynb` notebook relies purely on cached data to
-apply the split throughput heuristic. Feel free to analyze this data yourself.
+The `network_path_analysis.ipynb` notebook relies purely on cached data to apply
+the split throughput heuristic. Feel free to analyze this data more yourself!
+
 For further exploration, follow the detailed instructions below for how to
 replicate the emulation experiments.
 
@@ -102,3 +106,11 @@ don't rely on the cached data. If a notebook cell states that data is missing
 without running the emulation, change the `execute=False` argument to `True`.
 Note that TCP BBRv2 and TCP BBRv3 require that you are on the correct Linux
 kernel!
+
+### TCP PEP experiments (optional)
+
+To replicate the remaining figures, similarly re-execute the cells in
+`network_path_real_data.ipynb` and `accuracy_analysis.ipynb` after moving
+the cached data and changing `execute=False` to `True`. For the paper, we
+executed TCP BBRv2 and TCP BBRv3 benchmarks on different nodes and rsynced
+the data directories.
