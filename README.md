@@ -48,11 +48,12 @@ notebooks to regenerate the figures and analysis in the paper:
 	* Figure 5: Characterize QUIC congestion control schemes at 10 Mbit/s.
 	* Figures 8-12 in the Appendix: Heatmaps of the full parameter space.
 * `network_path_analysis.ipynb`
-	* Table 3: Apply the heuristic to analyze theoretical split settings - ***FINDING 2***.
+	* Table 3: Apply the heuristic to analyze TCP in theoretical split settings - ***FINDING 2***.
 	* Figure 1 (heuristic only): Identify marquee network settings for Figure 1 - ***FINDING 1***.
 	* Figure 6: Apply the heuristic to reason about QUIC in split settings - ***FINDING 3***.
 * `network_path_real_data.ipynb` (optional)
-	* Figure 1: Marquee network settings where TCP BBRv3 benefits significantly from a real connection-splitting PEP.
+	* Figure 1: Marquee network settings where TCP BBRv3 benefits significantly
+	  from a real connection-splitting PEP but TCP BBRv1 does not.
 * `accuracy_analysis.ipynb` (optional)
 	* Figure 7: Heatmaps comparing measured and predicted split throughputs.
 
@@ -61,6 +62,14 @@ the split throughput heuristic. Feel free to analyze this data more yourself!
 
 For further exploration, follow the detailed instructions below for how to
 replicate the emulation experiments.
+
+<p align="center">
+	<img src="img/figure6a.png" alt="Figure 6a" width="40%">
+	<img src="img/figure6b.png" alt="Figure 6b" width="40%">
+	<br>
+	<b>Figure 6:</b> Predicted bottleneck link rate utilizations.
+	End-to-end behavior of each CCA varies significantly by implementation.
+</p>
 
 ## Detailed Instructions
 
@@ -106,6 +115,18 @@ don't rely on the cached data. If a notebook cell states that data is missing
 without running the emulation, change the `execute=False` argument to `True`.
 Note that TCP BBRv2 and TCP BBRv3 require that you are on the correct Linux
 kernel!
+
+Each heatmap takes up to a few hours to collect with one trial. You can
+interrupt the process, change `execute=True` to `False`, and execute the cell
+to visualize intermediate progress. As long as you started the Jupyter notebook
+in a detached shell like `tmux`, you can leave the process running in the
+background.
+
+<p align="center">
+	<img alt="Figure 4" src="./img/figure4.png">
+	<br>
+	<b>Figure 4:</b> Link rate utilization heatmaps at 10 Mbits.
+</p>
 
 ### TCP PEP experiments (optional)
 

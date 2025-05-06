@@ -13,6 +13,12 @@ algorithm for the transport protocol implementation. For all options, see:
 sudo -E python3 emulation/main.py --help
 ```
 
+<p align="center">
+    <img src="../img/figure3.png" width="50%" alt="Figure 3">
+    <br>
+    <b>Figure 3:</b> Two segment network topology in mininet.
+</p>
+
 ## Example
 
 This is a simple example of a 10 MB data transfer using Linux TCP + CUBIC. The

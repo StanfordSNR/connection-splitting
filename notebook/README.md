@@ -1,13 +1,11 @@
-# notebook
-
-## Setup
+# Notebook Setup
 
 The instructions assume your working directory is `~/connection-splitting`. The
 raw data from emulation benchmarks is written to `~/connection-splitting/data`.
 Automated benchmark execution, data analysis, and plotting is all done in
 Jupyter notebooks.
 
-### PDF output directory
+## PDF output directory
 
 Make a directory for generating PDF figures:
 
@@ -15,7 +13,7 @@ Make a directory for generating PDF figures:
 mkdir notebook/output/
 ```
 
-### Python dependencies
+## Python dependencies
 
 Setup a virtual environment:
 
@@ -32,7 +30,7 @@ pip install matplotlib
 pip install pandas
 ```
 
-### Jupyter notebook
+## Jupyter notebook
 
 In the remote server:
 
