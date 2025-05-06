@@ -1,12 +1,31 @@
-# Setup
+# Machine Configuration
 
-## Install a Linux kernel, if necessary.
+All experiments were run on CloudLab x86_64 `rs630` nodes in the Massachusetts
+cluster running Ubuntu 22.04. These instructions should also be compatible with
+any similar x86_64 configuration using the same package manager. We recommend
+reserving at least 4 nodes if replicating all results: one for the TCP BBRv3
+kernel, one for the TCP BBRv2 kernel, one for Chromium QUIC (which uses a lot
+of disk space), and one for everything else. For the rest of these instructions,
+we will refer to these as `node3`, `node2`, `node1`, and `node0`, respectively,
+corresponding to the CloudLab node names.
+
+Set the following environment variable as your working directory:
+
+```
+export WORKDIR=$HOME/connection-splitting
+```
+
+## Install a Linux kernel.
 
 If evaluating TCP BBRv2 or BBRv3, follow the instructions in
 [BBRv3.md](https://github.com/StanfordSNR/connection-splitting/blob/main/deps/BBRV3.md)
 to install a fork of the Linux kernel with these congestion control modules.
+We assume `node3` is running the kernel for TCP BBRv3 and `node2` is running
+the kernel for TCP BBRv2.
 
-## Install Linux dependencies.
+## Install dependencies.
+
+Install Linux dependencies:
 
 ```
 sudo apt-get update -y
@@ -18,30 +37,17 @@ sudo apt-get install -y cmake  # cloudflare quiche
 sudo apt-get install -y libssl-dev  # picoquic
 ```
 
-## TCP Benchmarks
-
-### Build and install PEPsal
-
-Fetch the PEPsal source.
+Install the [Rust toolchain](https://www.rust-lang.org/tools/install):
 
 ```
-export WORKDIR=$HOME/connection-splitting
-cd $WORKDIR/deps
-git clone git@github.com:viveris/pepsal.git
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+. "$HOME/.cargo/env"
 ```
 
-Build and install PEPsal.
+## Generate HTTPS certificates.
 
-```
-cd $WORKDIR/deps
-./build_deps.sh 1
-```
-
-Test that `pepsal` is on your path.
-
-### Generate certificates
-
-Generate certificates using Chromium scripts.
+Generate certificates and check that the files `leaf_cert.pem`,
+`leaf_cert.pkcs8`, and `leaf_cert.key` exist in `deps/certs/out/`.
 
 ```
 cd $WORKDIR/deps/certs
@@ -54,19 +60,58 @@ openssl x509 -noout -pubkey < out/leaf_cert.pem | \
 	openssl enc -base64
 ```
 
-Check that the files `leaf_cert.pem`, `leaf_cert.pkcs8`, and `leaf_cert.key`
-exist in `deps/certs/out/`.
+## Build benchmarks.
 
-## QUIC Benchmarks (Google)
+These are instructions for building the HTTPS client/server (and other
+dependencies) for each benchmark. We recommend following only the Chromium QUIC
+instructions on `node1`, and all other instructions on `node0`. Also follow the
+TCP instructions on `node2` and `node3`.
 
-Skip this section if not running QUIC benchmarks. It takes around an hour.
+### TCP + PEP
 
-### Build and install Chromium QUIC
+Build and install PEPsal, the connection-splitting TCP PEP, and test that
+`pepsal` is on your path:
+
+```
+cd $WORKDIR/deps
+git clone git@github.com:viveris/pepsal.git
+./build_deps.sh 1
+```
+
+### Picoquic
+
+This is a fork of picoquic on the main branch as of January 2024. The picoquic
+library is unchanged, but the sample server has been modified to always return
+`N` bytes, regardless of the client request, where `N` is an argument provided
+by the CLI.
+
+```
+cd $WORKDIR/deps
+git clone --recursive https://github.com/thearossman/picoquic
+./build_deps.sh 4
+```
+
+### Cloudflare QUIC
+
+This is a fork of `quiche` at a new (as of January 2025) tagged release
+(`0.22.0`). The `quiche` library is unchanged, but the sample `quiche-server`
+has been modified to expect a URI from the client of the form `/N`, where `N`
+is the number of bytes it will generate and return.
+
+```
+cd $WORKDIR/deps
+git clone --recursive https://github.com/thearossman/quiche.git
+./build_deps.sh 3
+```
+
+### Chromium QUIC (Google)
+
+Skip this section if not running Google QUIC benchmarks. It takes around an hour
+and a lot of disk space.
 
 Fetch the Chromium source. (10 min)
 
 ```
-export WORKDIR=$HOME/connection-splitting
 cd $WORKDIR/deps
 git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
 export PATH="$WORKDIR/deps/depot_tools:$PATH"
@@ -99,52 +144,3 @@ cd $WORKDIR/deps/chromium/src
 gn gen out/Default
 ninja -C out/Default quic_server quic_client
 ```
-
-### Generate certificates
-
-See the section on generating certificates under "TCP Benchmarks".
-
-## QUIC Benchmarks (Cloudflare)
-
-### Install Rust (if needed)
-
-Install the Rust toolchain (instructions [here](https://www.rust-lang.org/tools/install)):
-
-```
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-. "$HOME/.cargo/env"
-```
-
-### Build and Install Cloudflare QUIC (quiche)
-
-This is a fork of quiche at a new (as of January 2025) tagged release (0.22.0). The quiche library is unchanged, but the sample quiche-server has been modified to expect a URI from the client of the form "/N", where N is the number of bytes it will generate and return.
-
-```
-cd $WORKDIR/deps
-git clone --recursive https://github.com/thearossman/quiche.git
-./build_deps.sh 3
-```
-
-Building the repository may take a few minutes.
-
-### Generate certificates
-
-See the section on generating certificates under "TCP Benchmarks".
-
-## QUIC Benchmarks (PicoQUIC)
-
-### Build and Install PicoQUIC
-
-This is a fork of picoquic on the main branch as of January 2024. The picoquic library is unchanged, but the sample server has been modified to always return N bytes, regardless of the client request, where N is an argument provided by the CLI.
-
-```
-cd $WORKDIR/deps
-git clone --recursive https://github.com/thearossman/picoquic
-./build_deps.sh 4
-```
-
-Building the repository may take a few minutes.
-
-### Generate certificates
-
-See the section on generating certificates under "TCP Benchmarks".
