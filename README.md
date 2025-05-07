@@ -14,14 +14,14 @@ experiments.
 To get started with this artifact, we recommend exploring the Jupyter notebooks
 using the raw data. For further exploration, we then recommend running
 emulations and replicating some of the results of the emulation throughput
-experiments.
+experiments, or even evaluating your own congestion control schemes.
 
 ### Setup
 
 All experiments were run on CloudLab x86_64 `rs630` nodes in the Massachusetts
-cluster, using Ubuntu 22.04. Any similar x86_64 machine would suffice. Clone
-this repository into your home directory. Install dependencies, accepting any
-prompts:
+cluster, using Ubuntu 22.04. Any similar Linux x86_64 machine would suffice.
+Clone this repository into your home directory. Install dependencies, accepting
+any prompts:
 
 ```
 ./deps/node0.sh
@@ -67,8 +67,8 @@ replicate the emulation experiments.
 	<img src="img/figure6a.png" alt="Figure 6a" width="40%">
 	<img src="img/figure6b.png" alt="Figure 6b" width="40%">
 	<br>
-	<b>Figure 6:</b> Predicted bottleneck link rate utilizations.
-	End-to-end behavior of each CCA varies significantly by implementation.
+	<b>Figure 6:</b> The predicted behavior of each CCA based on end-to-end
+	behavior varies significantly by implementation.
 </p>
 
 ## Detailed Instructions
@@ -98,9 +98,16 @@ path segment near the client who makes the HTTPS GET request.
 
 ### Collect heatmap data
 
+First, delete or move the `~/connection-splitting/data`
+directory so the notebooks don't rely on the cached data. If a notebook cell
+states that data is missing without running the emulation, change the
+`execute=False` argument to `True`. Note that TCP BBRv2 and TCP BBRv3 require
+that you are on the correct Linux kernel!
+
 Collect heatmap data for a few congestion control schemes in
-`parameter_exploration.ipynb`. We recommend changing the configurations in
-the third cell to:
+`parameter_exploration.ipynb` such as TCP BBRv1, picoquic BBRv3, Cloudflare
+CUBIC, etc. We recommend changing the configurations in the third cell to the
+following to run fewer trials while still getting a basic idea of the heatmap:
 
 ```
 NUM_TRIALS = 1
@@ -109,12 +116,6 @@ LOSSES = [0, 1, 2, 3, 4]
 DELAYS = [1, 20, 40, 60, 80, 100]
 BWS = [10]
 ```
-
-Delete or move the `~/connection-splitting/data` directory so the notebooks
-don't rely on the cached data. If a notebook cell states that data is missing
-without running the emulation, change the `execute=False` argument to `True`.
-Note that TCP BBRv2 and TCP BBRv3 require that you are on the correct Linux
-kernel!
 
 Each heatmap takes up to a few hours to collect with one trial. You can
 interrupt the process, change `execute=True` to `False`, and execute the cell
@@ -125,7 +126,7 @@ background.
 <p align="center">
 	<img alt="Figure 4" src="./img/figure4.png">
 	<br>
-	<b>Figure 4:</b> Link rate utilization heatmaps at 10 Mbits.
+	<b>Figure 4:</b> Link rate utilization heatmaps at 10 Mbit/s.
 </p>
 
 ### TCP PEP experiments (optional)

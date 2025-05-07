@@ -48,8 +48,9 @@ sudo -E python3 emulation/main.py --pep tcp -n 10M
 
 ## Tests
 
-Run all tests (some tests will fail if the required dependencies for the HTTPS
-implementation are not installed):
+Run all tests (some tests will fail if the
+[required dependencies](https://github.com/StanfordSNR/connection-splitting/tree/main/deps)
+for the HTTPS implementation are not installed):
 
 ```
 sudo -E python -m unittest -v
