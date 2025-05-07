@@ -136,3 +136,13 @@ To replicate the remaining figures, similarly re-execute the cells in
 the cached data and changing `execute=False` to `True`. For the paper, we
 executed TCP BBRv2 and TCP BBRv3 benchmarks on different nodes and rsynced
 the data directories.
+
+## Acknowledgments
+
+This work was supported in part by NSF grants 2045714 and 2039070, DARPA
+contract HR001120C0107, a Stanford School of Engineering Fellowship, a Sloan
+Research Fellowship, affiliate members and other supporters of Stanford DAWN,
+including Meta, Google, and VMware, as well as Cisco and SAP, and Huawei,
+Dropbox, Amazon, and the Mozilla Foundation. Any opinions, findings, and
+conclusions or recommendations expressed in this material are those of the
+authors and do not necessarily reflect the views of the sponsors.
