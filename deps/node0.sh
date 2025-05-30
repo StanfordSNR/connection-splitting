@@ -27,7 +27,7 @@ openssl x509 -noout -pubkey < out/leaf_cert.pem | \
 
 # Download benchmark dependencies
 cd $WORKDIR/deps
-git clone git@github.com:viveris/pepsal.git
+git clone https://github.com/viveris/pepsal.git
 git clone --recursive https://github.com/thearossman/picoquic
 git clone --recursive https://github.com/thearossman/quiche.git
 
